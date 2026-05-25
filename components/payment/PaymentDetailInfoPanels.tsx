@@ -1,10 +1,10 @@
 import {
   CreditCard, Receipt, Wallet, FileText,
-  Paperclip, StickyNote, ExternalLink,
+   StickyNote, ExternalLink,
 } from 'lucide-react'
 import Link          from 'next/link'
 import { cn }        from '@/lib/utils'
-import { formatCurrency, formatDate, formatDateShort, daysUntilDue } from '@/lib/format'
+import { formatCurrency, formatDate, daysUntilDue } from '@/lib/format'
 import type { PaymentDocument } from '@/types/payment'
 import { PaymentStatusBadge, VerificationStatusBadge, PaymentMethodBadge } from './PaymentStatusBadge'
 

@@ -7,7 +7,6 @@ import { Button }       from '@/components/ui/Button'
 import { PageHeader }   from '@/components/layout/PageHeader'
 import { FormField, FormSection } from '@/components/form/FormField'
 import { Input, Textarea } from '@/components/ui/Input'
-import { cn }           from '@/lib/utils'
 import type { ShipmentDocument } from '@/types/shipment'
 
 export function ShipmentEditClient({ shp }: { shp: ShipmentDocument }) {

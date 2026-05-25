@@ -1,6 +1,6 @@
 'use client'
 
-import { Package, CheckCircle, XCircle } from 'lucide-react'
+import { Package, CheckCircle} from 'lucide-react'
 import { formatDateShort }               from '@/lib/format'
 import type { ColumnDef }                from '@/components/table/DataTable'
 import type { ShipmentListItem }         from '@/types/shipment'

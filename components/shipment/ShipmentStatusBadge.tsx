@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { ShipmentStatus } from '@/types/shipment'
-import { CheckCircle, Circle, XCircle } from 'lucide-react'
+import { CheckCircle, Circle } from 'lucide-react'
 
 // ─── Shipment Status ─────────────────────────────────────────────
 const STATUS_CFG: Record<ShipmentStatus, {

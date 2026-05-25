@@ -24,6 +24,12 @@ export interface LoginCredentials {
   password: string
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
 // ─── Login Response ──────────────────────────────────────────────
 export interface LoginResponse {
   session: AuthSession

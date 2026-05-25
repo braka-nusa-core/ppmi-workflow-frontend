@@ -1,9 +1,8 @@
-import { get, post, put, patch } from '@/lib/api/client'
+import { get, post, put} from '@/lib/api/client'
 import type { ApiResponse, PaginatedResponse, ListQueryParams } from '@/types/api'
 import type {
   PaymentDocument, PaymentListItem, PaymentInstallment,
   CreatePaymentPayload, RecordPaymentPayload, RecordInstallmentPayload,
-  PaymentVerificationStatus,
 } from '@/types/payment'
 
 const BASE = '/payments'

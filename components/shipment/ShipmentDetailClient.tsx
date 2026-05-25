@@ -2,7 +2,7 @@
 
 import { useState }              from 'react'
 import { useRouter }             from 'next/navigation'
-import { ArrowLeft, Package, CheckCircle, Inbox, Send, XCircle, User, Clock } from 'lucide-react'
+import { ArrowLeft,  CheckCircle, Inbox, Send, XCircle, User, Clock } from 'lucide-react'
 import { cn }                    from '@/lib/utils'
 import { formatDateTime, formatDate } from '@/lib/format'
 import type { ShipmentDocument } from '@/types/shipment'

@@ -11,7 +11,7 @@ import { FormField }       from '@/components/form/FormField'
 import { Input, Select }   from '@/components/ui/Input'
 import { CurrencyInput }   from '@/components/form/CurrencyInput'
 import { formatCurrency }  from '@/lib/format'
-import type { PaymentListItem, PaymentInstallment } from '@/types/payment'
+import type { PaymentDocument, PaymentInstallment } from '@/types/payment'
 
 const METHOD_OPTIONS = [
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
@@ -25,7 +25,7 @@ interface RecordPaymentModalProps {
   open:          boolean
   onClose:       () => void
   onSuccess:     () => void
-  payment?:      PaymentListItem | null
+  payment?:      Pick<PaymentDocument, 'currency' | 'remainingAmount' | 'docNumber' | 'installmentCount'> | null
   installment?:  PaymentInstallment | null
   isInstallment: boolean
 }
@@ -56,7 +56,7 @@ export function RecordPaymentModal({
 
   const { register, handleSubmit, formState: { errors }, setValue, reset } = form
 
-  const onSubmit = async (data: RecordPaymentFormData) => {
+  const onSubmit = async (_data: RecordPaymentFormData) => {
     setSubmitting(true)
     try {
       await new Promise((r) => setTimeout(r, 800))

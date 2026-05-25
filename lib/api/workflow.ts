@@ -1,10 +1,14 @@
 import { get, post, put, patch, del } from './client'
 import type { ApiResponse, PaginatedResponse, ListQueryParams } from '@/types/api'
 import type {
-  VoucherDocument, VoucherListItem, CreateVoucherPayload,
   PaymentDocument, PaymentListItem, CreatePaymentPayload, PaymentInstallment,
-  ShipmentDocument, ShipmentListItem,
 } from '@/types/payment'
+import type {
+  VoucherDocument, VoucherListItem, CreateVoucherPayload,
+} from '@/types/voucher'
+import type {
+  ShipmentDocument, ShipmentListItem,
+} from '@/types/shipment'
 import type { DocumentStatus, PaymentStatus } from '@/types/workflow'
 
 // ─── VOUCHER ─────────────────────────────────────────────────────

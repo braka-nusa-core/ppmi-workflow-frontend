@@ -69,7 +69,7 @@ export function ShipmentActivityTimeline({ activity }: ShipmentActivityTimelineP
                     )}
                     {item.meta?.notes && (
                       <p className="text-[11px] text-[#3a5068] mt-0.5 italic">
-                        "{item.meta.notes}"
+                        &quot;{item.meta.notes}&quot;
                       </p>
                     )}
                     <p className="text-[11px] text-[#7a8fa3] mt-1">

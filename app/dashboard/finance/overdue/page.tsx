@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { PageHeader }    from '@/components/layout/PageHeader'
 import { MOCK_PAYMENT_LIST } from '@/lib/mock/paymentData'
 import { PaymentListClient } from '@/components/payment/PaymentListClient'
 

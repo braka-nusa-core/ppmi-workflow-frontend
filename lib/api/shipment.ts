@@ -2,7 +2,7 @@ import { get, post, put, patch } from '@/lib/api/client'
 import type { ApiResponse, PaginatedResponse, ListQueryParams } from '@/types/api'
 import type {
   ShipmentDocument, ShipmentListItem,
-  CreateShipmentPayload, UpdateShipmentPayload, ShipmentStatus,
+  CreateShipmentPayload, UpdateShipmentPayload,
 } from '@/types/shipment'
 
 const BASE = '/shipments'

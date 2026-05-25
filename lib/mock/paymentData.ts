@@ -1,7 +1,7 @@
-import type { PaymentListItem, PaymentDocument, PaymentInstallment, PaymentActivity } from '@/types/payment'
+import type { PaymentListItem, PaymentDocument, PaymentInstallment } from '@/types/payment'
 
-const now  = new Date()
-const ago  = (d: number) => new Date(now.getTime() - d * 86400000).toISOString()
+const now = new Date()
+const ago = (d: number) => new Date(now.getTime() - d * 86400000).toISOString()
 const from = (d: number) => new Date(now.getTime() + d * 86400000).toISOString()
 
 // ─── Mock installments ───────────────────────────────────────────
@@ -9,27 +9,26 @@ const makeInstallments = (
   paymentId: string,
   total: number,
   count: number,
-  paidCount: number,
-  currency: 'IDR' | 'USD'
+  paidCount: number
 ): PaymentInstallment[] => {
   const perInstallment = total / count
   return Array.from({ length: count }, (_, i) => {
-    const num   = i + 1
-    const isPaid= num <= paidCount
+    const num = i + 1
+    const isPaid = num <= paidCount
     const dueOffset = -20 + (i * 30) // spread 30 days apart from 20 days ago
     return {
-      id:                `${paymentId}-inst-${num}`,
+      id: `${paymentId}-inst-${num}`,
       paymentId,
       installmentNumber: num,
-      dueDate:           from(dueOffset),
-      amount:            perInstallment,
-      paidAmount:        isPaid ? perInstallment : 0,
-      paidDate:          isPaid ? ago(20 - i * 28) : undefined,
-      paymentMethod:     isPaid ? ('BANK_TRANSFER' as const) : undefined,
-      referenceNumber:   isPaid ? `REF-${paymentId.toUpperCase()}-${num}` : undefined,
-      status:            isPaid ? 'PAID' : dueOffset < 0 ? 'OVERDUE' : 'UNPAID',
-      verifiedBy:        isPaid ? 'Dewi Rahmawati' : undefined,
-      verifiedAt:        isPaid ? ago(19 - i * 28) : undefined,
+      dueDate: from(dueOffset),
+      amount: perInstallment,
+      paidAmount: isPaid ? perInstallment : 0,
+      paidDate: isPaid ? ago(20 - i * 28) : undefined,
+      paymentMethod: isPaid ? ('BANK_TRANSFER' as const) : undefined,
+      referenceNumber: isPaid ? `REF-${paymentId.toUpperCase()}-${num}` : undefined,
+      status: isPaid ? 'PAID' : dueOffset < 0 ? 'OVERDUE' : 'UNPAID',
+      verifiedBy: isPaid ? 'Dewi Rahmawati' : undefined,
+      verifiedAt: isPaid ? ago(19 - i * 28) : undefined,
     }
   })
 }
@@ -122,37 +121,37 @@ export const MOCK_PAYMENT_LIST: PaymentListItem[] = [
 ]
 
 // ─── Full detail document ────────────────────────────────────────
-const installments = makeInstallments('pay-003', 95000000, 2, 1, 'IDR')
+const installments = makeInstallments('pay-003', 95000000, 2, 1)
 
 export const MOCK_PAYMENT_DETAIL: PaymentDocument = {
-  id:                  'pay-003',
-  docNumber:           'PAY-2025-0093',
-  division:            'PI',
-  paymentStatus:       'PARTIAL',
-  verificationStatus:  'UNVERIFIED',
+  id: 'pay-003',
+  docNumber: 'PAY-2025-0093',
+  division: 'PI',
+  paymentStatus: 'PARTIAL',
+  verificationStatus: 'UNVERIFIED',
 
-  voucherId:           'vch-003',
-  voucherNumber:       'VCH-2025-0097',
-  invoiceId:           'inv-004',
-  invoiceNumber:       'INV-2025-0135',
-  qsId:                'qs-005',
-  qsNumber:            'QS-2025-0139',
+  voucherId: 'vch-003',
+  voucherNumber: 'VCH-2025-0097',
+  invoiceId: 'inv-004',
+  invoiceNumber: 'INV-2025-0135',
+  qsId: 'qs-005',
+  qsNumber: 'QS-2025-0139',
 
-  insuredName:  'CV Mitra Bahari Sentosa',
-  vesselName:   'KM Mitra Sejahtera',
+  insuredName: 'CV Mitra Bahari Sentosa',
+  vesselName: 'KM Mitra Sejahtera',
 
-  currency:        'IDR',
-  totalAmount:     95000000,
-  paidAmount:      47500000,
+  currency: 'IDR',
+  totalAmount: 95000000,
+  paidAmount: 47500000,
   remainingAmount: 47500000,
 
   dueDate: from(4),
 
-  isInstallment:   true,
-  installmentCount:2,
+  isInstallment: true,
+  installmentCount: 2,
   installments,
 
-  lastPaymentDate:   ago(5),
+  lastPaymentDate: ago(5),
   lastPaymentAmount: 47500000,
   lastPaymentMethod: 'BANK_TRANSFER',
   lastReferenceNumber: 'REF-PAY003-1',

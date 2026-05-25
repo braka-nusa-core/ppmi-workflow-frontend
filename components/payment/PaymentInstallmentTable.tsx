@@ -2,7 +2,7 @@
 
 import { CreditCard, CheckCircle } from 'lucide-react'
 import { cn }                    from '@/lib/utils'
-import { formatCurrency, formatDate, formatDateShort, daysUntilDue } from '@/lib/format'
+import { formatCurrency,  formatDateShort, daysUntilDue } from '@/lib/format'
 import type { PaymentInstallment, PaymentDocument } from '@/types/payment'
 import { PaymentStatusBadge }    from './PaymentStatusBadge'
 import { Button }                from '@/components/ui/Button'

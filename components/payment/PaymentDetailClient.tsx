@@ -105,7 +105,7 @@ export function PaymentDetailClient({ pay }: PaymentDetailClientProps) {
       <RecordPaymentModal
         open={recordModal.isOpen}
         onClose={recordModal.close}
-        payment={pay as any}
+        payment={pay}
         installment={recordModal.data ?? null}
         isInstallment={!!recordModal.data}
         onSuccess={() => { recordModal.close(); router.refresh() }}
