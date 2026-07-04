@@ -32,6 +32,7 @@ export const DATETIME_FORMAT     = 'dd MMM yyyy HH:mm'// 15 Jan 2025 14:30
 // ─── Local Storage Keys ──────────────────────────────────────────
 export const LS_DIVISION_KEY = 'ppmi_active_division'
 export const LS_AUTH_KEY     = 'ppmi_auth_token'
+export const LS_AUTH_USER_KEY = 'ppmi_auth_user'
 export const LS_TABLE_PREFS  = 'ppmi_table_prefs'
 
 // ─── Query Stale Times ───────────────────────────────────────────

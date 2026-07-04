@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect }   from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useForm }               from 'react-hook-form'
-import { zodResolver }           from '@hookform/resolvers/zod'
+import { useState, useEffect }        from 'react'
+import { useRouter, useSearchParams }  from 'next/navigation'
+import { useForm }                     from 'react-hook-form'
+import { zodResolver }                 from '@hookform/resolvers/zod'
+import { useQuery, useQueryClient }    from '@tanstack/react-query'
 import { Save, Send, X, FileText, Info } from 'lucide-react'
 import { createInvoiceSchema, type CreateInvoiceFormData } from '@/lib/validations/invoice'
-import { Button }                from '@/components/ui/Button'
-import { PageHeader }            from '@/components/layout/PageHeader'
-import { QSAttachmentUpload }    from '@/components/qs/QSAttachmentUpload'
+import { Button }                      from '@/components/ui/Button'
+import { PageHeader }                  from '@/components/layout/PageHeader'
+import { QSAttachmentUpload }          from '@/components/qs/QSAttachmentUpload'
 import {
   InvoiceInfoSection,
   BillingInfoSection,
@@ -16,28 +17,9 @@ import {
   BankInfoSection,
   InvoiceNotesSection,
 } from './InvoiceFormSections'
-import { cn } from '@/lib/utils'
-
-// Mock QS lookup — replace with API call
-const QS_LOOKUP: Record<string, {
-  qsNumber:    string
-  division:    'PI' | 'HM'
-  insuredName: string
-  vesselName:  string
-  currency:    'IDR' | 'USD'
-  premiumAmount: number
-}> = {
-  'qs-001': {
-    qsNumber: 'QS-2025-0143', division: 'HM',
-    insuredName: 'PT Soechi Lines Tbk', vesselName: 'MV Soechi Cilacap',
-    currency: 'USD', premiumAmount: 48500,
-  },
-  'qs-002': {
-    qsNumber: 'QS-2025-0142', division: 'PI',
-    insuredName: 'PT Arpeni Pratama Ocean Line', vesselName: 'MV Artha Kencana',
-    currency: 'USD', premiumAmount: 72000,
-  },
-}
+import { cn }                          from '@/lib/utils'
+import { createInvoice, submitInvoice }    from '@/lib/api/invoice'
+import { fetchQSDetail }               from '@/lib/api/qs'
 
 const SECTIONS = [
   { id: 'invoice',   label: 'Invoice Info'   },
@@ -51,20 +33,21 @@ const SECTIONS = [
 export function InvoiceCreateClient() {
   const router       = useRouter()
   const searchParams = useSearchParams()
+  const qc           = useQueryClient()
   const qsIdParam    = searchParams.get('qsId') ?? ''
 
-  const [isSaving,     setSaving]     = useState(false)
-  const [isSubmitting, setSubmitting] = useState(false)
-  const [activeSection, setActive]    = useState('invoice')
-  const linkedQS = qsIdParam ? QS_LOOKUP[qsIdParam] : null
+  const [isSaving,      setSaving]      = useState(false)
+  const [isSubmitting,  setSubmitting]  = useState(false)
+  const [activeSection, setActive]      = useState('invoice')
+  const [apiError,      setApiError]    = useState<string | null>(null)
 
   const form = useForm<CreateInvoiceFormData>({
     resolver: zodResolver(createInvoiceSchema),
     defaultValues: {
-      qsId:     qsIdParam,
-      division: linkedQS?.division ?? 'PI',
-      currency: linkedQS?.currency ?? 'IDR',
-      subtotal: linkedQS?.premiumAmount ?? 0,
+      qsId:      qsIdParam,
+      division:  'PI',
+      currency:  'IDR',
+      subtotal:  0,
       issueDate: new Date().toISOString().slice(0, 10),
     },
   })
@@ -72,29 +55,50 @@ export function InvoiceCreateClient() {
   const { handleSubmit, formState: { errors }, setValue } = form
   const errorCount = Object.keys(errors).length
 
-  // Auto-fill from linked QS
+  // ── Fetch linked QS for auto-fill (real API, replaces QS_LOOKUP mock) ──
+  const { data: linkedQS } = useQuery({
+    queryKey:  ['qs-detail', qsIdParam],
+    queryFn:   () => fetchQSDetail(qsIdParam),
+    enabled:   !!qsIdParam,
+  })
+
+  // Auto-fill form fields from the linked QS once it loads
   useEffect(() => {
     if (!linkedQS) return
     setValue('insuredName', linkedQS.insuredName)
     setValue('vesselName',  linkedQS.vesselName)
-    setValue('division',    linkedQS.division)
     setValue('currency',    linkedQS.currency)
     setValue('subtotal',    linkedQS.premiumAmount)
   }, [linkedQS, setValue])
 
+  // ── Shared submit logic ─────────────────────────────────────────
+  const submit = async (data: CreateInvoiceFormData, status: 'DRAFT' | 'PENDING') => {
+    setApiError(null)
+    try {
+      const created = await createInvoice(data)  // POST /invoices (adapter sets status: DRAFT)
+      if (status === 'PENDING') await submitInvoice(created.id) // PATCH status→PENDING
+      await qc.invalidateQueries({ queryKey: ['invoice-list'] })
+      router.push('/dashboard/invoice')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create invoice. Please try again.'
+      setApiError(msg)
+    }
+  }
+
   const handleSaveDraft = async () => {
     setSaving(true)
     try {
-      await new Promise((r) => setTimeout(r, 800))
-      router.push('/dashboard/invoice')
+      // Trigger validation first; handleSubmit won't fire for Save Draft
+      // so we call submit directly only if qsId + insuredName are present
+      const values = form.getValues()
+      await submit(values as CreateInvoiceFormData, 'DRAFT')
     } finally { setSaving(false) }
   }
 
-  const onSubmit = async (_data: CreateInvoiceFormData) => {
+  const onSubmit = async (data: CreateInvoiceFormData) => {
     setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 1000))
-      router.push('/dashboard/invoice')
+      await submit(data, 'PENDING')
     } finally { setSubmitting(false) }
   }
 
@@ -105,12 +109,11 @@ export function InvoiceCreateClient() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Page Header */}
       <div className="page-container pb-0">
         <PageHeader
           title="New Invoice"
           description={linkedQS
-            ? `Creating invoice from ${linkedQS.qsNumber}`
+            ? `Creating invoice from ${linkedQS.docNumber}`
             : 'Create a new invoice document'
           }
           breadcrumbs={[
@@ -156,7 +159,15 @@ export function InvoiceCreateClient() {
         {/* Form */}
         <div className="flex-1 overflow-y-auto page-container pt-6">
 
-          {/* Auto-fill notice when created from QS */}
+          {/* API error banner */}
+          {apiError && (
+            <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6"
+              style={{ background: '#fdecea', border: '1px solid #f0a0a0' }}>
+              <p className="text-[12px] font-semibold text-[#8c1f1f]">{apiError}</p>
+            </div>
+          )}
+
+          {/* Auto-fill notice */}
           {linkedQS && (
             <div
               className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6"
@@ -165,7 +176,7 @@ export function InvoiceCreateClient() {
               <FileText size={14} className="text-[#123d6b] flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-[12px] font-semibold text-[#123d6b]">
-                  Auto-filled from {linkedQS.qsNumber}
+                  Auto-filled from {linkedQS.docNumber}
                 </p>
                 <p className="text-[11px] text-[#2d6495] mt-0.5">
                   Insured name, vessel, currency and premium amount have been pre-filled.
@@ -175,22 +186,21 @@ export function InvoiceCreateClient() {
             </div>
           )}
 
-          {/* Invoice number preview */}
+          {/* Invoice number info */}
           <div
             className="flex items-center gap-2.5 px-4 py-3 rounded-lg mb-6"
             style={{ background: '#f7f9fb', border: '1px solid #d5e3ef' }}
           >
             <Info size={13} className="text-[#7a8fa3] flex-shrink-0" />
             <p className="text-[12px] text-[#3a5068]">
-              Invoice number will be auto-generated:{' '}
-              <strong className="font-mono text-[#18273a]">INV-2025-0139</strong>
+              Invoice number will be auto-generated by the server upon creation.
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
               <div id="invoice"   className="pb-8">
-                <InvoiceInfoSection form={form} linkedQSNumber={linkedQS?.qsNumber} />
+                <InvoiceInfoSection form={form} linkedQSNumber={linkedQS?.docNumber} />
               </div>
               <div id="billing"   className="py-8"><BillingInfoSection   form={form} /></div>
               <div id="payment"   className="py-8"><PaymentInfoSection   form={form} /></div>

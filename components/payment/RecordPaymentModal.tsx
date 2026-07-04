@@ -24,7 +24,7 @@ const METHOD_OPTIONS = [
 interface RecordPaymentModalProps {
   open:          boolean
   onClose:       () => void
-  onSuccess:     () => void
+  onSuccess:     (id: string, paidAmount: number, remainingAmount: number, paymentDate: string, remarks?: string) => void
   payment?:      Pick<PaymentDocument, 'currency' | 'remainingAmount' | 'docNumber' | 'installmentCount'> | null
   installment?:  PaymentInstallment | null
   isInstallment: boolean
@@ -56,12 +56,17 @@ export function RecordPaymentModal({
 
   const { register, handleSubmit, formState: { errors }, setValue, reset } = form
 
-  const onSubmit = async (_data: RecordPaymentFormData) => {
+  const onSubmit = async (data: RecordPaymentFormData) => {
+    if (!payment) return
     setSubmitting(true)
     try {
-      await new Promise((r) => setTimeout(r, 800))
+      const paymentId     = (payment as { id?: string }).id ?? ''
+      const newPaid       = (isInstallment
+        ? (installment?.paidAmount ?? 0) + data.paidAmount
+        : data.paidAmount)
+      const newRemaining  = Math.max(0, maxAmount - data.paidAmount)
       reset()
-      onSuccess()
+      onSuccess(paymentId, newPaid, newRemaining, data.paidDate, data.notes)
     } finally {
       setSubmitting(false)
     }

@@ -2,6 +2,8 @@ import { cn } from '@/lib/utils'
 import type { InvoiceStatus, InvoicePaymentStatus } from '@/types/invoice'
 
 // ─── Invoice Status ──────────────────────────────────────────────
+// Values must match backend enum (types/backend/invoice.ts):
+//   InvoiceStatus: DRAFT | PENDING | VOUCHER | SHIPPED | CLOSED
 const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
   label:  string
   bg:     string
@@ -9,12 +11,11 @@ const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, {
   border: string
   dot:    string
 }> = {
-  DRAFT:     { label: 'Draft',     bg: '#f0f4f7', text: '#3a5068', border: '#b5cede', dot: '#7a8fa3' },
-  ISSUED:    { label: 'Issued',    bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
-  SENT:      { label: 'Sent',      bg: '#edf5fb', text: '#2d6495', border: '#a0c4dd', dot: '#2d6495' },
-  PAID:      { label: 'Paid',      bg: '#eaf6f0', text: '#1a5c38', border: '#96d6b4', dot: '#1a5c38' },
-  OVERDUE:   { label: 'Overdue',   bg: '#fdecea', text: '#8c1f1f', border: '#f0a0a0', dot: '#8c1f1f' },
-  CANCELLED: { label: 'Cancelled', bg: '#f7f3f0', text: '#6b4a3a', border: '#d4b8a8', dot: '#9a7060' },
+  DRAFT:   { label: 'Draft',   bg: '#f0f4f7', text: '#3a5068', border: '#b5cede', dot: '#7a8fa3' },
+  PENDING: { label: 'Pending', bg: '#fdf7ed', text: '#7a5000', border: '#f0cd7a', dot: '#e0a020' },
+  VOUCHER: { label: 'Voucher', bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
+  SHIPPED: { label: 'Shipped', bg: '#edf5fb', text: '#2d6495', border: '#a0c4dd', dot: '#2d6495' },
+  CLOSED:  { label: 'Closed',  bg: '#eaf6f0', text: '#1a5c38', border: '#96d6b4', dot: '#1a5c38' },
 }
 
 interface InvoiceStatusBadgeProps {

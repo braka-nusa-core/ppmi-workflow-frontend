@@ -1,11 +1,12 @@
 'use client'
 
-import { useState }           from 'react'
-import { useRouter }          from 'next/navigation'
-import type { QSDocument }    from '@/types/qs'
-import { QSDetailHeader }     from './QSDetailHeader'
-import { QSDetailSidebar }    from './QSDetailSidebar'
-import { QSActivityTimeline } from './QSActivityTimeline'
+import { useState }              from 'react'
+import { useRouter }             from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchQSDetail, approveQS, rejectQS, deleteQS } from '@/lib/api/qs'
+import { QSDetailHeader }        from './QSDetailHeader'
+import { QSDetailSidebar }       from './QSDetailSidebar'
+import { QSActivityTimeline }    from './QSActivityTimeline'
 import {
   PolicyInfoPanel,
   VesselInfoPanel,
@@ -14,17 +15,22 @@ import {
   AttachmentsPanel,
   NotesPanel,
 } from './QSDetailInfoPanels'
-import { ConfirmModal }       from '@/components/modal/BaseModal'
-import { useModal }           from '@/hooks/useModal'
-import { useRole }            from '@/hooks/useRole'
+import { ConfirmModal }          from '@/components/modal/BaseModal'
+import { LoadingSkeleton }       from '@/components/feedback/LoadingSkeleton'
+import { ErrorState }            from '@/components/feedback/ErrorState'
+import { useModal }              from '@/hooks/useModal'
+import { useRole }               from '@/hooks/useRole'
+import { useToast }              from '@/context/ToastContext'
 
 interface QSDetailClientProps {
-  qs: QSDocument
+  id: string
 }
 
-export function QSDetailClient({ qs }: QSDetailClientProps) {
-  const router   = useRouter()
+export function QSDetailClient({ id }: QSDetailClientProps) {
+  const router       = useRouter()
+  const queryClient  = useQueryClient()
   const { canEdit, canVerify, canCreate } = useRole()
+  const { success, error: toastError } = useToast()
 
   const approveModal  = useModal()
   const revisionModal = useModal()
@@ -32,38 +38,110 @@ export function QSDetailClient({ qs }: QSDetailClientProps) {
   const archiveModal  = useModal()
 
   const [isApproving,  setApproving]  = useState(false)
+  const [isRejecting,  setRejecting]  = useState(false)
   const [isGenerating, setGenerating] = useState(false)
+  const [isArchiving,  setArchiving]  = useState(false)
 
+  // ── Fetch detail ──────────────────────────────────────────────
+  const { data: qs, isLoading, isError, refetch } = useQuery({
+    queryKey: ['qs-detail', id],
+    queryFn:  () => fetchQSDetail(id),
+  })
+
+  // ── Mutations ─────────────────────────────────────────────────
+  // After any mutation, invalidate both the list and this detail cache so
+  // the list page reflects the change when the user navigates back.
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['qs-list'] })
+    queryClient.invalidateQueries({ queryKey: ['qs-detail', id] })
+  }
+
+  const approveMutation = useMutation({
+    mutationFn: () => approveQS(id),
+    onSuccess: () => {
+      invalidate()
+      setApproving(false)
+      success('QS Approved', `${qs?.docNumber} has been approved successfully.`)
+      approveModal.close()
+    },
+    onError: () => {
+      toastError('Approval failed', 'Could not approve the QS. Please try again.')
+      setApproving(false)
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: () => rejectQS(id),
+    onSuccess: () => {
+      invalidate()
+      setRejecting(false)
+      success('Revision Requested', `${qs?.docNumber} has been returned for revision.`)
+      revisionModal.close()
+    },
+    onError: () => {
+      toastError('Action failed', 'Could not request revision. Please try again.')
+      setRejecting(false)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteQS(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['qs-list'] })
+      success('QS Archived', `${qs?.docNumber} has been archived.`)
+      router.push('/dashboard/qs')
+    },
+    onError: () => {
+      toastError('Archive failed', 'Could not archive the QS. Please try again.')
+      setArchiving(false)
+    },
+  })
+
+  // ── Handlers ─────────────────────────────────────────────────
   const handleApprove = async () => {
     setApproving(true)
-    try {
-      await new Promise((r) => setTimeout(r, 800))
-      approveModal.close()
-      router.refresh()
-    } finally {
-      setApproving(false)
-    }
+    approveMutation.mutate()
   }
 
   const handleRevision = async () => {
-    revisionModal.close()
-    router.refresh()
+    setRejecting(true)
+    rejectMutation.mutate()
   }
 
   const handleGenerateInvoice = async () => {
     setGenerating(true)
-    try {
-      await new Promise((r) => setTimeout(r, 1000))
-      invoiceModal.close()
-      router.push(`/dashboard/invoice/new?qsId=${qs.id}`)
-    } finally {
-      setGenerating(false)
-    }
+    invoiceModal.close()
+    router.push(`/dashboard/invoice/new?qsId=${id}`)
+    // Reset after a tick — if navigation fails or user navigates back,
+    // the button won't be stuck in a loading state.
+    setTimeout(() => setGenerating(false), 500)
   }
 
   const handleArchive = async () => {
-    archiveModal.close()
-    router.push('/dashboard/qs')
+    setArchiving(true)
+    deleteMutation.mutate()
+  }
+
+  // ── Loading state ─────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="page-container">
+        <LoadingSkeleton />
+      </div>
+    )
+  }
+
+  // ── Error state ───────────────────────────────────────────────
+  if (isError || !qs) {
+    return (
+      <div className="page-container flex items-center justify-center min-h-[400px]">
+        <ErrorState
+          message="Failed to load quotation sheet"
+          description="The QS document could not be loaded. It may have been deleted or you may not have access."
+          onRetry={() => refetch()}
+        />
+      </div>
+    )
   }
 
   return (
@@ -127,10 +205,11 @@ export function QSDetailClient({ qs }: QSDetailClientProps) {
         onClose={revisionModal.close}
         onConfirm={handleRevision}
         title="Request Revision"
-        description={`Return ${qs.docNumber} to the editor for revision? The status will change to Revision.`}
+        description={`Return ${qs.docNumber} to the editor for revision? The status will change to Rejected.`}
         confirmLabel="Request Revision"
         cancelLabel="Cancel"
         variant="primary"
+        loading={isRejecting}
       />
 
       <ConfirmModal
@@ -154,6 +233,7 @@ export function QSDetailClient({ qs }: QSDetailClientProps) {
         confirmLabel="Archive"
         cancelLabel="Cancel"
         variant="primary"
+        loading={isArchiving}
       />
     </div>
   )

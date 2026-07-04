@@ -1,45 +1,97 @@
-import { get, post, put} from '@/lib/api/client'
-import type { ApiResponse, PaginatedResponse, ListQueryParams } from '@/types/api'
+import { get, post, patch, del } from '@/lib/api/client'
+import type { PaginatedResponse }    from '@/types/api'
+import type { PaymentListItem, PaymentDocument, PaymentFilters } from '@/types/payment'
 import type {
-  PaymentDocument, PaymentListItem, PaymentInstallment,
-  CreatePaymentPayload, RecordPaymentPayload, RecordInstallmentPayload,
-} from '@/types/payment'
+  BackendPaymentListEnvelope,
+  BackendPaymentDetailEnvelope,
+  BackendPaymentMutationEnvelope,
+  BackendCreatePaymentPayload,
+  BackendUpdatePaymentPayload,
+} from '@/types/backend/payment'
+import {
+  mapPaymentListItem,
+  mapPaymentDetail,
+  mapPaymentQueryParams,
+  mapPaymentListPagination,
+} from '@/lib/adapters/payment'
 
 const BASE = '/payments'
 
-export const fetchPaymentList = (params: ListQueryParams): Promise<PaginatedResponse<PaymentListItem>> =>
-  get<PaginatedResponse<PaymentListItem>>(BASE, { params })
+// ─── List ─────────────────────────────────────────────────────────
+export async function fetchPaymentList(
+  filters: PaymentFilters & {
+    page?:     number
+    pageSize?: number
+    sortBy?:   string
+    sortDir?:  'asc' | 'desc'
+  } = {}
+): Promise<PaginatedResponse<PaymentListItem>> {
+  const params = mapPaymentQueryParams(filters)
+  const envelope = await get<BackendPaymentListEnvelope>(BASE, { params })
+  const items    = envelope.data.items.map(mapPaymentListItem)
+  const pageSize = filters.pageSize ?? 25
+  return mapPaymentListPagination(items, envelope.data.total_pages, envelope.data.current_page, pageSize)
+}
 
-export const fetchPaymentDetail = (id: string): Promise<ApiResponse<PaymentDocument>> =>
-  get<ApiResponse<PaymentDocument>>(`${BASE}/${id}`)
+// ─── Detail ───────────────────────────────────────────────────────
+export async function fetchPaymentDetail(id: string): Promise<PaymentDocument> {
+  const envelope = await get<BackendPaymentDetailEnvelope>(`${BASE}/${id}`)
+  return mapPaymentDetail(envelope.data)
+}
 
-export const fetchOverduePayments = (params: ListQueryParams): Promise<PaginatedResponse<PaymentListItem>> =>
-  get<PaginatedResponse<PaymentListItem>>(`${BASE}/overdue`, { params })
+// ─── Create ───────────────────────────────────────────────────────
+/**
+ * POST /payments
+ * Creates a new payment installment record linked to a Voucher.
+ * The backend stores each installment as a separate Payment row.
+ */
+export async function createPayment(payload: BackendCreatePaymentPayload): Promise<PaymentDocument> {
+  const envelope = await post<BackendPaymentMutationEnvelope>(BASE, payload)
+  return mapPaymentDetail(envelope.data)
+}
 
-export const createPayment = (payload: CreatePaymentPayload): Promise<ApiResponse<PaymentDocument>> =>
-  post<ApiResponse<PaymentDocument>>(BASE, payload)
+// ─── Update ───────────────────────────────────────────────────────
+/**
+ * PATCH /payments/:id  (NOT PUT)
+ * Updates one or more fields on an existing payment record.
+ * Used for: recording payment receipt (update paid_amount, remaining_amount, payment_status)
+ *           updating due date, remarks, etc.
+ */
+export async function updatePayment(
+  id: string,
+  payload: BackendUpdatePaymentPayload
+): Promise<PaymentDocument> {
+  const envelope = await patch<BackendPaymentMutationEnvelope>(`${BASE}/${id}`, payload)
+  return mapPaymentDetail(envelope.data)
+}
 
-export const createPaymentFromVoucher = (voucherId: string): Promise<ApiResponse<PaymentDocument>> =>
-  post<ApiResponse<PaymentDocument>>(`${BASE}/from-voucher/${voucherId}`)
+// ─── Delete ───────────────────────────────────────────────────────
+/**
+ * DELETE /payments/:id
+ * Hard-deletes the payment record (permanent, no soft-delete on Payment model).
+ */
+export async function deletePayment(id: string): Promise<void> {
+  await del<{ success: boolean; status_code: number }>(`${BASE}/${id}`)
+}
 
-export const recordPayment = (id: string, payload: RecordPaymentPayload): Promise<ApiResponse<PaymentDocument>> =>
-  post<ApiResponse<PaymentDocument>>(`${BASE}/${id}/record`, payload)
-
-export const recordInstallment = (
-  paymentId: string,
-  installmentId: string,
-  payload: RecordInstallmentPayload
-): Promise<ApiResponse<PaymentInstallment>> =>
-  post<ApiResponse<PaymentInstallment>>(`${BASE}/${paymentId}/installments/${installmentId}/record`, payload)
-
-export const verifyPayment = (id: string, notes?: string): Promise<ApiResponse<PaymentDocument>> =>
-  post<ApiResponse<PaymentDocument>>(`${BASE}/${id}/verify`, { notes })
-
-export const flagPayment = (id: string, reason: string): Promise<ApiResponse<PaymentDocument>> =>
-  post<ApiResponse<PaymentDocument>>(`${BASE}/${id}/flag`, { reason })
-
-export const advanceToShipment = (id: string): Promise<ApiResponse<{ shipmentId: string; shipmentNumber: string }>> =>
-  post<ApiResponse<{ shipmentId: string; shipmentNumber: string }>>(`${BASE}/${id}/advance`)
-
-export const updatePayment = (id: string, data: Partial<CreatePaymentPayload>): Promise<ApiResponse<PaymentDocument>> =>
-  put<ApiResponse<PaymentDocument>>(`${BASE}/${id}`, data)
+// ─── Convenience: record a payment receipt ─────────────────────────
+/**
+ * Record that a payment has been received.
+ * Maps to PATCH /payments/:id with updated amounts and status.
+ */
+export async function recordPaymentReceipt(
+  id: string,
+  paidAmount:      number,
+  remainingAmount: number,
+  paymentDate:     string,
+  remarks?:        string
+): Promise<PaymentDocument> {
+  const status = remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT'
+  return updatePayment(id, {
+    paid_amount:      paidAmount,
+    remaining_amount: remainingAmount,
+    payment_date:     paymentDate,
+    payment_status:   status,
+    ...(remarks ? { remarks } : {}),
+  })
+}

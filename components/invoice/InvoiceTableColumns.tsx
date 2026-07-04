@@ -19,9 +19,12 @@ interface InvoiceTableActionsConfig {
   canCreate:         boolean
 }
 
+
 export function buildInvoiceColumns(
   actions: InvoiceTableActionsConfig
 ): ColumnDef<InvoiceListItem>[] {
+
+
   return [
     {
       key:      'docNumber',
@@ -163,7 +166,7 @@ export function buildInvoiceColumns(
       render:    (row) => (
         <TableActions
           onView={() => actions.onView(row)}
-          onEdit={actions.canEdit && (row.status === 'DRAFT' || row.status === 'ISSUED')
+          onEdit={actions.canEdit && (row.status === 'DRAFT' || row.status === 'PENDING')
             ? () => actions.onEdit(row)
             : undefined
           }
@@ -172,13 +175,13 @@ export function buildInvoiceColumns(
               label:   'Mark as Sent',
               icon:    <Send size={13} />,
               onClick: () => actions.onMarkSent(row),
-              hidden:  row.status !== 'ISSUED' || !actions.canEdit,
+              hidden:  row.status !== 'PENDING' || !actions.canEdit,
             },
             {
               label:   'Generate Voucher',
               icon:    <Wallet size={13} />,
               onClick: () => actions.onGenerateVoucher(row),
-              hidden:  row.hasVoucher || row.status !== 'SENT' || !actions.canCreate,
+              hidden:  row.hasVoucher || row.status !== 'PENDING' || !actions.canCreate,
             },
             {
               label:   'Download PDF',

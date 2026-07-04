@@ -106,7 +106,7 @@ function OverdueList({ items }: OverdueListProps) {
               <span className="text-[11px] font-semibold text-[#18273a]">
                 {item.docNumber}
               </span>
-              <DivisionBadge division={item.division} />
+              {item.division && <DivisionBadge division={item.division} />}
             </div>
             <p className="text-[11px] text-[#3a5068] truncate">
               {item.clientName}
@@ -169,7 +169,7 @@ function UpcomingList({ items }: UpcomingListProps) {
                 <span className="text-[11px] font-semibold text-[#18273a]">
                   {item.docNumber}
                 </span>
-                <DivisionBadge division={item.division} />
+                {item.division && <DivisionBadge division={item.division} />}
               </div>
               <p className="text-[11px] text-[#3a5068] truncate">
                 {item.clientName}

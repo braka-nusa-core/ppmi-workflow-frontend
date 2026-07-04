@@ -1,13 +1,14 @@
 import type { Division } from './workflow'
 
 // ─── Invoice-specific statuses ───────────────────────────────────
+// Aligned with backend prisma enum InvoiceStatus (see types/backend/invoice.ts).
+// SHIPPED is set automatically by POST /shipments — never set by the client.
 export type InvoiceStatus =
   | 'DRAFT'
-  | 'ISSUED'
-  | 'SENT'
-  | 'PAID'
-  | 'OVERDUE'
-  | 'CANCELLED'
+  | 'PENDING'
+  | 'VOUCHER'
+  | 'SHIPPED'
+  | 'CLOSED'
 
 export type InvoicePaymentStatus =
   | 'UNPAID'

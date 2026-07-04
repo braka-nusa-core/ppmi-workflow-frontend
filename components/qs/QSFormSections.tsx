@@ -21,7 +21,7 @@ export function PolicySection({ form }: SectionProps) {
       {/* QS Type */}
       <FormField label="QS Type" required error={errors.type?.message}>
         <div className="flex gap-2">
-          {(['NEW', 'RENEW'] as const).map((t) => (
+          {(['NEW', 'RENEWAL'] as const).map((t) => (
             <button
               key={t}
               type="button"

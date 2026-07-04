@@ -2,7 +2,14 @@
 
 import { useState }               from 'react'
 import { useRouter }              from 'next/navigation'
-import type { VoucherDocument }   from '@/types/voucher'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  fetchVoucherDetail,
+  approveVoucher,
+  rejectVoucher,
+  advanceToPayment,
+  cancelVoucher,
+} from '@/lib/api/voucher'
 import { VoucherDetailHeader }    from './VoucherDetailHeader'
 import { VoucherDetailSidebar }   from './VoucherDetailSidebar'
 import { VoucherActivityTimeline }from './VoucherActivityTimeline'
@@ -16,44 +23,134 @@ import {
   VoucherAttachmentsPanel,
   VoucherNotesPanel,
 } from './VoucherDetailInfoPanels'
-import { ConfirmModal, BaseModal, ModalHeader, ModalBody, ModalFooter } from '@/components/modal/BaseModal'
-import { Button }     from '@/components/ui/Button'
-import { FormField }  from '@/components/form/FormField'
-import { Textarea }   from '@/components/ui/Input'
-import { useModal }   from '@/hooks/useModal'
-import { useRole }    from '@/hooks/useRole'
+import {
+  ConfirmModal,
+  BaseModal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@/components/modal/BaseModal'
+import { LoadingSkeleton }  from '@/components/feedback/LoadingSkeleton'
+import { ErrorState }       from '@/components/feedback/ErrorState'
+import { Button }           from '@/components/ui/Button'
+import { FormField }        from '@/components/form/FormField'
+import { Textarea }         from '@/components/ui/Input'
+import { useModal }         from '@/hooks/useModal'
+import { useRole }          from '@/hooks/useRole'
+import { useToast }         from '@/context/ToastContext'
 
 interface VoucherDetailClientProps {
-  vch: VoucherDocument
+  id: string
 }
 
-export function VoucherDetailClient({ vch }: VoucherDetailClientProps) {
-  const router = useRouter()
+export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
+  const router      = useRouter()
+  const queryClient = useQueryClient()
   const { canEdit, canVerify, canCreate } = useRole()
+  const { success, error: toastError }   = useToast()
 
   const approveModal = useModal()
   const rejectModal  = useModal()
   const paymentModal = useModal()
   const cancelModal  = useModal()
 
-  const [isProcessing, setProcessing] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
 
-  const handle = (action: () => Promise<void>, onClose: () => void) => async () => {
-    setProcessing(true)
-    try {
-      await action()
-      onClose()
-      router.refresh()
-    } finally {
-      setProcessing(false)
-    }
+  // ── Fetch ─────────────────────────────────────────────────────
+  const { data: vch, isLoading, isError, refetch } = useQuery({
+    queryKey: ['voucher-detail', id],
+    queryFn:  () => fetchVoucherDetail(id).then((r) => r.data),
+  })
+
+  // ── Shared invalidation ───────────────────────────────────────
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+    queryClient.invalidateQueries({ queryKey: ['voucher-detail', id] })
+  }
+
+  // ── Approve ───────────────────────────────────────────────────
+  const approveMutation = useMutation({
+    mutationFn: () => approveVoucher(id),
+    onSuccess: () => {
+      invalidate()
+      success('Voucher Approved', `${vch?.docNumber} has been approved.`)
+      approveModal.close()
+    },
+    onError: () => {
+      toastError('Approval failed', 'Could not approve the voucher. Please try again.')
+    },
+  })
+
+  // ── Reject ────────────────────────────────────────────────────
+  const rejectMutation = useMutation({
+    mutationFn: () => rejectVoucher(id, rejectReason),
+    onSuccess: () => {
+      invalidate()
+      success('Voucher Rejected', `${vch?.docNumber} has been returned for revision.`)
+      setRejectReason('')
+      rejectModal.close()
+    },
+    onError: () => {
+      toastError('Rejection failed', 'Could not reject the voucher. Please try again.')
+    },
+  })
+
+  // ── Advance to Payment ────────────────────────────────────────
+  const paymentMutation = useMutation({
+    mutationFn: () => advanceToPayment(id),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+      success('Payment Generated', 'Payment record created successfully.')
+      paymentModal.close()
+      if (res.data?.paymentId) {
+        router.push(`/dashboard/payment/${res.data.paymentId}`)
+      } else {
+        router.push('/dashboard/payment')
+      }
+    },
+    onError: () => {
+      toastError('Failed', 'Could not generate payment. Please try again.')
+    },
+  })
+
+  // ── Cancel ────────────────────────────────────────────────────
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelVoucher(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+      success('Voucher Cancelled', `${vch?.docNumber} has been cancelled.`)
+      router.push('/dashboard/voucher')
+    },
+    onError: () => {
+      toastError('Cancellation failed', 'Could not cancel the voucher. Please try again.')
+    },
+  })
+
+  // ── Loading ───────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="page-container">
+        <LoadingSkeleton />
+      </div>
+    )
+  }
+
+  // ── Error ─────────────────────────────────────────────────────
+  if (isError || !vch) {
+    return (
+      <div className="page-container flex items-center justify-center min-h-[400px]">
+        <ErrorState
+          message="Failed to load voucher"
+          description="The voucher document could not be loaded. It may have been deleted or you may not have access."
+          onRetry={() => refetch()}
+        />
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col min-h-full">
 
-      {/* Sticky header */}
       <VoucherDetailHeader
         vch={vch}
         canEdit={canEdit}
@@ -63,13 +160,10 @@ export function VoucherDetailClient({ vch }: VoucherDetailClientProps) {
         onReject={()  => rejectModal.open()}
         onPayment={() => paymentModal.open()}
         onCancel={()  => cancelModal.open()}
-        onDownload={() => { /* wire to downloadVoucherPDF */ }}
+        onDownload={() => { /* PDF download — handled separately */ }}
       />
 
-      {/* Body */}
       <div className="flex gap-5 px-7 py-6 flex-1">
-
-        {/* Main content */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
           <VoucherInfoPanel     vch={vch} />
           <LinkedInvoicePanel   vch={vch} />
@@ -82,7 +176,6 @@ export function VoucherDetailClient({ vch }: VoucherDetailClientProps) {
           <VoucherActivityTimeline activity={vch.activity ?? []} />
         </div>
 
-        {/* Sidebar */}
         <VoucherDetailSidebar
           vch={vch}
           canEdit={canEdit}
@@ -93,24 +186,24 @@ export function VoucherDetailClient({ vch }: VoucherDetailClientProps) {
           onReject={()  => rejectModal.open()}
           onPayment={() => paymentModal.open()}
           onCancel={()  => cancelModal.open()}
-          onDownload={() => { /* wire */ }}
+          onDownload={() => { /* PDF download */ }}
         />
       </div>
 
-      {/* ── Modals ────────────────────────────────────────────── */}
+      {/* Approve */}
       <ConfirmModal
         open={approveModal.isOpen}
         onClose={approveModal.close}
-        onConfirm={handle(async () => { await new Promise((r) => setTimeout(r, 800)) }, approveModal.close)}
+        onConfirm={() => approveMutation.mutate()}
         title="Approve Voucher"
         description={`Approve ${vch.docNumber}? This will authorise the payment amount of ${vch.currency} ${vch.amount.toLocaleString()} to be processed.`}
         confirmLabel="Approve Voucher"
         cancelLabel="Cancel"
         variant="primary"
-        loading={isProcessing}
+        loading={approveMutation.isPending}
       />
 
-      {/* Reject modal with reason input */}
+      {/* Reject — custom modal with reason input */}
       <BaseModal open={rejectModal.isOpen} onClose={rejectModal.close} size="sm">
         <ModalHeader title="Reject Voucher" onClose={rejectModal.close} />
         <ModalBody>
@@ -127,48 +220,44 @@ export function VoucherDetailClient({ vch }: VoucherDetailClientProps) {
           </FormField>
         </ModalBody>
         <ModalFooter>
-          <Button variant="secondary" onClick={rejectModal.close} disabled={isProcessing}>
+          <Button variant="secondary" onClick={rejectModal.close} disabled={rejectMutation.isPending}>
             Cancel
           </Button>
           <Button
             variant="danger"
-            loading={isProcessing}
+            loading={rejectMutation.isPending}
             disabled={!rejectReason.trim()}
-            onClick={handle(async () => { await new Promise((r) => setTimeout(r, 800)) }, rejectModal.close)}
+            onClick={() => rejectMutation.mutate()}
           >
             Reject Voucher
           </Button>
         </ModalFooter>
       </BaseModal>
 
+      {/* Generate Payment */}
       <ConfirmModal
         open={paymentModal.isOpen}
         onClose={paymentModal.close}
-        onConfirm={handle(async () => {
-          await new Promise((r) => setTimeout(r, 800))
-          router.push(`/dashboard/payment/new?voucherId=${vch.id}`)
-        }, paymentModal.close)}
+        onConfirm={() => paymentMutation.mutate()}
         title="Generate Payment"
         description={`Generate a payment record from ${vch.docNumber}? This will advance the workflow to the Payment stage.`}
         confirmLabel="Generate Payment"
         cancelLabel="Cancel"
         variant="primary"
-        loading={isProcessing}
+        loading={paymentMutation.isPending}
       />
 
+      {/* Cancel */}
       <ConfirmModal
         open={cancelModal.isOpen}
         onClose={cancelModal.close}
-        onConfirm={handle(async () => {
-          await new Promise((r) => setTimeout(r, 600))
-          router.push('/dashboard/voucher')
-        }, cancelModal.close)}
+        onConfirm={() => cancelMutation.mutate()}
         title="Cancel Voucher"
         description={`Cancel ${vch.docNumber}? This cannot be undone.`}
         confirmLabel="Cancel Voucher"
         cancelLabel="Keep Voucher"
         variant="danger"
-        loading={isProcessing}
+        loading={cancelMutation.isPending}
       />
     </div>
   )

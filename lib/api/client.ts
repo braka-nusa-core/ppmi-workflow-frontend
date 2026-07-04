@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios'
-import { API_BASE_URL, API_TIMEOUT, LS_AUTH_KEY } from '@/config/constants'
+import { API_BASE_URL, API_TIMEOUT, LS_AUTH_KEY, LS_AUTH_USER_KEY } from '@/config/constants'
 import type { ApiError } from '@/types/api'
 
 // ─── Create Axios Instance ───────────────────────────────────────
@@ -27,6 +27,14 @@ apiClient.interceptors.request.use(
 )
 
 // ─── Response Interceptor — normalize errors ─────────────────────
+//
+// Backend (NestJS GlobalException filter) error shape:
+//   { success: false, status_code: number, error: { name, message, errors? } }
+//
+// This differs from the originally-assumed flat { message, errors } shape,
+// so we check both: nested `error.*` (current backend) first, falling back
+// to top-level `message`/`errors` in case other endpoints ever return a
+// flatter shape.
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
@@ -37,14 +45,29 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response) {
-      const data = error.response.data as Record<string, unknown>
-      apiError.message = (data?.message as string) ?? error.message
-      apiError.errors  = data?.errors as Record<string, string[]> | undefined
+      const data = error.response.data as {
+        message?: string
+        errors?: Record<string, string[]>
+        error?: { name?: string; message?: string; errors?: unknown }
+      }
 
-      // 401 — redirect to login
+      apiError.message =
+        data?.error?.message ??
+        data?.message ??
+        error.message
+
+      apiError.errors =
+        (data?.error?.errors as Record<string, string[]> | undefined) ??
+        data?.errors
+
+      // 401 — clear both session keys and redirect to login.
+      // Skip redirect if already on the login page to avoid redirect loops.
       if (error.response.status === 401 && typeof window !== 'undefined') {
         localStorage.removeItem(LS_AUTH_KEY)
-        window.location.href = '/auth/login'
+        localStorage.removeItem(LS_AUTH_USER_KEY)
+        if (!window.location.pathname.startsWith('/auth/')) {
+          window.location.href = '/auth/login'
+        }
       }
     } else if (error.request) {
       apiError.message = 'Network error — unable to reach server'

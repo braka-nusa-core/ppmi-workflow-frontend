@@ -44,10 +44,10 @@ export function InvoiceDetailSidebar({
     : 0
 
   const showIssue   = canEdit   && invoice.status === 'DRAFT'
-  const showSent    = canEdit   && invoice.status === 'ISSUED'
-  const showVoucher = canCreate && invoice.status === 'SENT' && !invoice.voucherId
-  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'ISSUED')
-  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'ISSUED')
+  const showSent    = canEdit   && invoice.status === 'PENDING'
+  const showVoucher = canCreate && invoice.status === 'PENDING' && !invoice.voucherId
+  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
+  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
 
   return (
     <aside className="flex flex-col gap-4 w-[264px] flex-shrink-0">

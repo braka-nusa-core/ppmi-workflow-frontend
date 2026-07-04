@@ -13,6 +13,8 @@ import {
 import { MarineIllustration } from '@/components/ui/MarineIllustration'
 import { LoginForm } from '@/components/auth/LoginForm'
 import type { LoginFormData } from '@/lib/validations'
+import { useAuth } from '@/hooks/useAuth'
+import { cn } from '@/lib/utils'
 
 // ─── Animation Variants ──────────────────────────────────────────
 const containerVariants = {
@@ -43,12 +45,13 @@ const STATS = [
 
 // ─── LoginPage Component ─────────────────────────────────────────
 export default function LoginPage() {
+  const { login } = useAuth()
+
   const handleLogin = async (data: LoginFormData) => {
-    // Auth will be wired to AuthContext.login() once backend is ready
-    // Simulate network delay for now
-    await new Promise((res) => setTimeout(res, 1200))
-    console.log('Login attempt:', data.email)
-    // throw new Error('Invalid credentials') // uncomment to test error state
+    // login() throws ApiError on failure (see lib/api/client.ts interceptor
+    // and lib/api/auth.ts). LoginForm catches this and displays err.message.
+    await login({ email: data.email, password: data.password })
+    // On success, AuthContext.login() redirects to /dashboard/overview.
   }
 
   return (
@@ -198,7 +201,7 @@ export default function LoginPage() {
             variants={itemVariants}
             className="flex items-center gap-6"
           >
-            {STATS.map((stat) => (
+            {STATS.map((stat, idx) => (
               <div key={stat.label} className="flex flex-col">
                 <span
                   className="text-xl font-semibold text-white leading-tight"

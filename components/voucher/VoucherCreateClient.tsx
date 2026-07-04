@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useEffect }        from 'react'
-import { useRouter, useSearchParams }  from 'next/navigation'
-import { useForm }                     from 'react-hook-form'
-import { zodResolver }                 from '@hookform/resolvers/zod'
+import { useEffect }               from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm }                  from 'react-hook-form'
+import { zodResolver }              from '@hookform/resolvers/zod'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, Send, X, Receipt, Info } from 'lucide-react'
 import { createVoucherSchema, type CreateVoucherFormData } from '@/lib/validations/voucher'
-import { Button }                      from '@/components/ui/Button'
-import { PageHeader }                  from '@/components/layout/PageHeader'
-import { QSAttachmentUpload }          from '@/components/qs/QSAttachmentUpload'
+import { createVoucher }            from '@/lib/api/voucher'
+import type { BackendVoucherStatus } from '@/types/backend/voucher'
+import { fetchInvoiceDetail }       from '@/lib/api/invoice'
+import { Button }                   from '@/components/ui/Button'
+import { PageHeader }               from '@/components/layout/PageHeader'
+import { QSAttachmentUpload }       from '@/components/qs/QSAttachmentUpload'
 import {
   VoucherInfoSection,
   VoucherPaymentSection,
@@ -16,101 +20,109 @@ import {
   VoucherApprovalSection,
   VoucherNotesSection,
 } from './VoucherFormSections'
-import { cn } from '@/lib/utils'
-
-// Mock invoice lookup — replace with API call
-const INVOICE_LOOKUP: Record<string, {
-  invoiceNumber: string
-  qsNumber:      string
-  division:      'PI' | 'HM'
-  insuredName:   string
-  currency:      'IDR' | 'USD'
-  totalAmount:   number
-  bankName?:     string
-  accountNumber?:string
-  accountName?:  string
-}> = {
-  'inv-001': {
-    invoiceNumber: 'INV-2025-0138', qsNumber: 'QS-2025-0143',
-    division: 'PI', insuredName: 'PT Soechi Lines Tbk',
-    currency: 'USD', totalAmount: 48500,
-    bankName: 'Bank Mandiri', accountNumber: '1234-5678-9012',
-    accountName: 'PT Soechi Lines Tbk',
-  },
-}
+import { useToast }  from '@/context/ToastContext'
+import { cn }        from '@/lib/utils'
 
 const SECTIONS = [
-  { id: 'voucher',  label: 'Voucher Info'   },
-  { id: 'payment',  label: 'Payment Info'   },
-  { id: 'bank',     label: 'Bank Info'      },
-  { id: 'approval', label: 'Approval'       },
-  { id: 'documents',label: 'Documents'      },
-  { id: 'notes',    label: 'Notes'          },
+  { id: 'voucher',   label: 'Voucher Info'  },
+  { id: 'payment',   label: 'Payment Info'  },
+  { id: 'bank',      label: 'Bank Info'     },
+  { id: 'approval',  label: 'Approval'      },
+  { id: 'documents', label: 'Documents'     },
+  { id: 'notes',     label: 'Notes'         },
 ]
 
 export function VoucherCreateClient() {
   const router       = useRouter()
   const searchParams = useSearchParams()
-  const invoiceIdParam = searchParams.get('invoiceId') ?? ''
+  const queryClient  = useQueryClient()
+  const { success, error: toastError } = useToast()
 
-  const [isSaving,     setSaving]     = useState(false)
-  const [isSubmitting, setSubmitting] = useState(false)
-  const [activeSection, setActive]    = useState('voucher')
-  const linked = invoiceIdParam ? INVOICE_LOOKUP[invoiceIdParam] : null
+  const invoiceIdParam = searchParams.get('invoiceId') ?? ''
+  const [activeSection, setActive] = [
+    'voucher',
+    (s: string) => { document.getElementById(s)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+  ]
+
+  // ── Fetch linked invoice (when navigated from Invoice detail) ─
+  const { data: invoiceRes } = useQuery({
+    queryKey: ['invoice-detail', invoiceIdParam],
+    queryFn:  () => fetchInvoiceDetail(invoiceIdParam),
+    enabled:  !!invoiceIdParam,
+  })
+  const invoice = invoiceRes?.data
 
   const form = useForm<CreateVoucherFormData>({
     resolver: zodResolver(createVoucherSchema),
     defaultValues: {
-      invoiceId:  invoiceIdParam,
-      division:   linked?.division ?? 'PI',
-      currency:   linked?.currency ?? 'IDR',
-      amount:     linked?.totalAmount ?? 0,
-      bankName:   linked?.bankName ?? '',
-      accountNumber: linked?.accountNumber ?? '',
-      accountName:   linked?.accountName ?? '',
+      invoiceId:    invoiceIdParam,
+      division:     'PI',
+      currency:     'IDR',
+      amount:       0,
+      bankName:     '',
+      accountNumber:'',
+      accountName:  '',
     },
   })
 
-  const { handleSubmit, formState: { errors }, setValue } = form
+  const { handleSubmit, formState: { errors }, setValue, getValues } = form
   const errorCount = Object.keys(errors).length
 
+  // Pre-fill form from invoice once loaded
   useEffect(() => {
-    if (!linked) return
-    setValue('division',      linked.division)
-    setValue('currency',      linked.currency)
-    setValue('amount',        linked.totalAmount)
-    if (linked.bankName)      setValue('bankName',      linked.bankName)
-    if (linked.accountNumber) setValue('accountNumber', linked.accountNumber)
-    if (linked.accountName)   setValue('accountName',   linked.accountName)
-  }, [linked, setValue])
+    if (!invoice) return
+    setValue('division', invoice.division)
+    setValue('currency', invoice.currency)
+    setValue('amount',   invoice.totalAmount)
+    if (invoice.bankInfo?.bankName)      setValue('bankName',      invoice.bankInfo.bankName)
+    if (invoice.bankInfo?.accountNumber) setValue('accountNumber', invoice.bankInfo.accountNumber)
+    if (invoice.bankInfo?.accountName)   setValue('accountName',   invoice.bankInfo.accountName)
+  }, [invoice, setValue])
 
-  const handleSaveDraft = async () => {
-    setSaving(true)
-    try {
-      await new Promise((r) => setTimeout(r, 800))
+  // ── Create mutation ───────────────────────────────────────────
+  // status is passed explicitly so the adapter can set it correctly:
+  //   Save Draft → 'DRAFT', Submit → 'SUBMITTED'
+  const createMutation = useMutation({
+    mutationFn: ({ data, status }: { data: CreateVoucherFormData; status: BackendVoucherStatus }) =>
+      createVoucher(data, status),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+      success('Voucher Created', `${res.data.docNumber} has been saved successfully.`)
       router.push('/dashboard/voucher')
-    } finally { setSaving(false) }
+    },
+    onError: () => {
+      toastError('Save failed', 'Could not save the voucher. Please check your inputs and try again.')
+    },
+  })
+
+  // Save as Draft — light validation only
+  const handleSaveDraft = () => {
+    const data = getValues()
+    if (!data.invoiceId || !data.bankName || !data.accountNumber || !data.amount) {
+      toastError('Required fields missing', 'Please fill in Invoice, Bank Name, Account Number, and Amount before saving.')
+      return
+    }
+    createMutation.mutate({ data: { ...data, paymentType: data.paymentType ?? 'BANK_TRANSFER' }, status: 'DRAFT' })
   }
 
-  const onSubmit = async (_data: CreateVoucherFormData) => {
-    setSubmitting(true)
-    try {
-      await new Promise((r) => setTimeout(r, 1000))
-      router.push('/dashboard/voucher')
-    } finally { setSubmitting(false) }
+  // Full submit — runs Zod validation first
+  const onSubmit = (data: CreateVoucherFormData) => {
+    createMutation.mutate({ data, status: 'PENDING_APPROVAL' })
   }
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setActive(id)
+  const scrollTo = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+
+  const isSaving     = createMutation.isPending
+  const isSubmitting = createMutation.isPending
 
   return (
     <div className="flex flex-col h-full">
       <div className="page-container pb-0">
         <PageHeader
           title="New Voucher"
-          description={linked ? `Creating voucher from ${linked.invoiceNumber}` : 'Create a new payment voucher'}
+          description={invoice ? `Creating voucher from ${invoice.docNumber}` : 'Create a new payment voucher'}
           breadcrumbs={[
             { label: 'Voucher', href: '/dashboard/voucher' },
             { label: 'New Voucher' },
@@ -130,9 +142,7 @@ export function VoucherCreateClient() {
               key={s.id} type="button" onClick={() => scrollTo(s.id)}
               className={cn(
                 'w-full text-left px-2 py-1.5 rounded text-[12px] font-medium transition-colors duration-100',
-                activeSection === s.id
-                  ? 'text-[#123d6b] bg-[#e8f3fb]'
-                  : 'text-[#3a5068] hover:text-[#18273a] hover:bg-[#edf1f5]'
+                'text-[#3a5068] hover:text-[#18273a] hover:bg-[#edf1f5]'
               )}
             >
               {s.label}
@@ -149,11 +159,13 @@ export function VoucherCreateClient() {
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto page-container pt-6">
-          {linked && (
+
+          {/* Invoice pre-fill banner */}
+          {invoice && (
             <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6" style={{ background: '#e8f3fb', border: '1px solid #93c4e5' }}>
               <Receipt size={14} className="text-[#123d6b] flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[12px] font-semibold text-[#123d6b]">Auto-filled from {linked.invoiceNumber}</p>
+                <p className="text-[12px] font-semibold text-[#123d6b]">Auto-filled from {invoice.docNumber}</p>
                 <p className="text-[11px] text-[#2d6495] mt-0.5">
                   Division, currency, amount, and bank details have been pre-filled from the linked invoice. Review before submitting.
                 </p>
@@ -164,23 +176,22 @@ export function VoucherCreateClient() {
           <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg mb-6" style={{ background: '#f7f9fb', border: '1px solid #d5e3ef' }}>
             <Info size={13} className="text-[#7a8fa3] flex-shrink-0" />
             <p className="text-[12px] text-[#3a5068]">
-              Voucher number will be auto-generated:{' '}
-              <strong className="font-mono text-[#18273a]">VCH-2025-0100</strong>
+              Voucher number will be auto-generated by the server on save.
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
-              <div id="voucher"  className="pb-8">
+              <div id="voucher"   className="pb-8">
                 <VoucherInfoSection
                   form={form}
-                  linkedInvoiceNumber={linked?.invoiceNumber}
-                  linkedQSNumber={linked?.qsNumber}
+                  linkedInvoiceNumber={invoice?.docNumber}
+                  linkedQSNumber={invoice?.qsNumber}
                 />
               </div>
-              <div id="payment"  className="py-8"><VoucherPaymentSection  form={form} /></div>
-              <div id="bank"     className="py-8"><VoucherBankSection     form={form} /></div>
-              <div id="approval" className="py-8"><VoucherApprovalSection form={form} /></div>
+              <div id="payment"   className="py-8"><VoucherPaymentSection  form={form} /></div>
+              <div id="bank"      className="py-8"><VoucherBankSection     form={form} /></div>
+              <div id="approval"  className="py-8"><VoucherApprovalSection form={form} /></div>
               <div id="documents" className="py-8">
                 <div className="mb-4 pb-3 border-b border-[#edf1f5]">
                   <h4 className="text-[13px] font-semibold text-[#18273a]">Attachments</h4>

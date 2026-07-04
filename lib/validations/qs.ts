@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const createQSSchema = z.object({
   // Policy
-  type:     z.enum(['NEW', 'RENEW'], { required_error: 'QS type is required' }),
+  type:     z.enum(['NEW', 'RENEWAL'], { required_error: 'QS type is required' }),
   division: z.enum(['PI', 'HM'],    { required_error: 'Division is required' }),
   effectiveDate: z.string().min(1, 'Effective date is required'),
   expiryDate:    z.string().min(1, 'Expiry date is required'),

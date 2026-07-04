@@ -1,10 +1,10 @@
 'use client'
 
-import { useState }                from 'react'
-import { useRouter }               from 'next/navigation'
-import type { InvoiceDocument }    from '@/types/invoice'
-import { InvoiceDetailHeader }     from './InvoiceDetailHeader'
-import { InvoiceDetailSidebar }    from './InvoiceDetailSidebar'
+import { useState }               from 'react'
+import { useRouter }              from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { InvoiceDetailHeader }    from './InvoiceDetailHeader'
+import { InvoiceDetailSidebar }   from './InvoiceDetailSidebar'
 import { InvoiceActivityTimeline } from './InvoiceActivityTimeline'
 import {
   InvoiceInfoPanel,
@@ -15,40 +15,71 @@ import {
   InvoiceAttachmentsPanel,
   InvoiceNotesPanel,
 } from './InvoiceDetailInfoPanels'
-import { ConfirmModal } from '@/components/modal/BaseModal'
-import { useModal }     from '@/hooks/useModal'
-import { useRole }      from '@/hooks/useRole'
+import { ConfirmModal }           from '@/components/modal/BaseModal'
+import { LoadingSkeleton }        from '@/components/feedback/LoadingSkeleton'
+import { ErrorState }             from '@/components/feedback/ErrorState'
+import { useModal }               from '@/hooks/useModal'
+import { useRole }                from '@/hooks/useRole'
+import {
+  fetchInvoiceDetail,
+  submitInvoice,
+  closeInvoice,
+  deleteInvoice,
+} from '@/lib/api/invoice'
 
-interface InvoiceDetailClientProps {
-  invoice: InvoiceDocument
-}
+interface InvoiceDetailClientProps { id: string }
 
-export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
-  const router = useRouter()
+export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
+  const router      = useRouter()
+  const qc          = useQueryClient()
   const { canEdit, canCreate } = useRole()
 
-  const issueModal   = useModal()
-  const sentModal    = useModal()
-  const voucherModal = useModal()
-  const cancelModal  = useModal()
+  const issueModal   = useModal<unknown>()
+  const sentModal    = useModal<unknown>()
+  const voucherModal = useModal<unknown>()
+  const cancelModal  = useModal<unknown>()
 
   const [isProcessing, setProcessing] = useState(false)
 
-  const handle = <T,>(
-    modal: ReturnType<typeof useModal<T>>,
-    action: () => Promise<void>
-  ) => {
-    return async () => {
-      setProcessing(true)
+  // ── Fetch ──────────────────────────────────────────────────────
+  const { data: invoice, isLoading, isError, refetch } = useQuery({
+    queryKey: ['invoice-detail', id],
+    queryFn:  () => fetchInvoiceDetail(id),
+  })
 
-      try {
-        await action()
-        modal.close()
-        router.refresh()
-      } finally {
-        setProcessing(false)
-      }
+  // ── Shared invalidation helper ─────────────────────────────────
+  const invalidate = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['invoice-detail', id] }),
+      qc.invalidateQueries({ queryKey: ['invoice-list'] }),
+    ])
+  }
+
+  // ── Generic modal action runner ────────────────────────────────
+  const run = (
+    modal: ReturnType<typeof useModal<unknown>>,
+    action: () => Promise<void>
+  ) => async () => {
+    setProcessing(true)
+    try {
+      await action()
+      modal.close()
+    } finally {
+      setProcessing(false)
     }
+  }
+
+  // ── Loading / error states ─────────────────────────────────────
+  if (isLoading) return <div className="flex items-center justify-center h-64"><LoadingSkeleton /></div>
+
+  if (isError || !invoice) {
+    return (
+      <ErrorState
+        message="Failed to load invoice"
+        description="An error occurred while loading this invoice. Please try again."
+        onRetry={() => refetch()}
+      />
+    )
   }
 
   return (
@@ -59,17 +90,15 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
         invoice={invoice}
         canEdit={canEdit}
         canCreate={canCreate}
-        onIssue={()   => issueModal.open()}
-        onMarkSent={()=> sentModal.open()}
+        onIssue={()    => issueModal.open()}
+        onMarkSent={() => sentModal.open()}
         onVoucher={()  => voucherModal.open()}
         onCancel={()   => cancelModal.open()}
-        onDownload={()  => { /* wire to downloadInvoicePDF */ }}
+        onDownload={()  => { /* no backend endpoint for PDF — intentionally non-functional */ }}
       />
 
       {/* Body */}
       <div className="flex gap-5 px-7 py-6 flex-1">
-
-        {/* Main content */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
           <InvoiceInfoPanel        inv={invoice} />
           <BillingInfoPanel        inv={invoice} />
@@ -81,7 +110,6 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
           <InvoiceActivityTimeline activity={invoice.activity ?? []} />
         </div>
 
-        {/* Sidebar */}
         <InvoiceDetailSidebar
           invoice={invoice}
           canEdit={canEdit}
@@ -91,44 +119,61 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
           onMarkSent={() => sentModal.open()}
           onVoucher={()  => voucherModal.open()}
           onCancel={()   => cancelModal.open()}
-          onDownload={() => { /* wire to downloadInvoicePDF */ }}
+          onDownload={()  => { /* no backend endpoint for PDF — intentionally non-functional */ }}
         />
       </div>
 
-      {/* Modals */}
+      {/* ── Issue Invoice (DRAFT → PENDING) ───────────────────── */}
       <ConfirmModal
         open={issueModal.isOpen}
         onClose={issueModal.close}
-        onConfirm={handle(issueModal, async () => {
-          await new Promise((r) => setTimeout(r, 800))
+        onConfirm={run(issueModal, async () => {
+          await submitInvoice(invoice.id)   // PATCH /invoices/:id { status: 'PENDING' }
+          await invalidate()
+          router.refresh()
         })}
         title="Issue Invoice"
-        description={`Issue ${invoice.docNumber}? The status will change from Draft to Issued and the invoice will be ready to send.`}
+        description={`Issue ${invoice.docNumber}? The status will change from Draft to Pending.`}
         confirmLabel="Issue Invoice"
         cancelLabel="Cancel"
         variant="primary"
         loading={isProcessing}
       />
 
+      {/* ── Mark as Sent ──────────────────────────────────────── */}
+      {/*
+        No backend endpoint exists for "mark as sent" — the backend has no
+        SENT status in InvoiceStatus. This modal is intentionally preserved
+        for UI continuity but its confirm handler is a no-op. The button
+        visibility guard (status === 'PENDING') means it will only show
+        when relevant; the action itself does nothing until a backend
+        endpoint is added.
+      */}
       <ConfirmModal
         open={sentModal.isOpen}
         onClose={sentModal.close}
-        onConfirm={handle(sentModal, async () => {
-          await new Promise((r) => setTimeout(r, 600))
+        onConfirm={run(sentModal, async () => {
+          // INTENTIONALLY NON-FUNCTIONAL — no backend endpoint for SENT status.
+          // Close the modal only; no mutation, no refetch.
         })}
         title="Mark as Sent"
-        description={`Confirm ${invoice.docNumber} has been sent to ${invoice.insuredName}?`}
+        description={`Confirm ${invoice.docNumber} has been sent to ${invoice.insuredName}? (Note: this action has no backend effect yet.)`}
         confirmLabel="Mark as Sent"
         cancelLabel="Cancel"
         variant="primary"
         loading={isProcessing}
       />
 
+      {/* ── Generate Voucher (navigate to voucher create) ─────── */}
+      {/*
+        Backend supports voucher creation via POST /vouchers with invoice_id.
+        The voucher create page handles the API call — this modal confirms
+        intent and navigates there with the invoice ID pre-filled.
+      */}
       <ConfirmModal
         open={voucherModal.isOpen}
         onClose={voucherModal.close}
-        onConfirm={handle(voucherModal, async () => {
-          await new Promise((r) => setTimeout(r, 800))
+        onConfirm={run(voucherModal, async () => {
           router.push(`/dashboard/voucher/new?invoiceId=${invoice.id}`)
         })}
         title="Generate Voucher"
@@ -139,15 +184,22 @@ export function InvoiceDetailClient({ invoice }: InvoiceDetailClientProps) {
         loading={isProcessing}
       />
 
+      {/* ── Cancel / Delete Invoice ────────────────────────────── */}
+      {/*
+        Backend has no CANCELLED status. "Cancel" maps to soft-delete
+        (DELETE /invoices/:id) which sets is_deleted = true.
+        The invoice is removed from active lists after this action.
+      */}
       <ConfirmModal
         open={cancelModal.isOpen}
         onClose={cancelModal.close}
-        onConfirm={handle(cancelModal, async () => {
-          await new Promise((r) => setTimeout(r, 600))
+        onConfirm={run(cancelModal, async () => {
+          await deleteInvoice(invoice.id)   // DELETE /invoices/:id (soft delete)
+          await qc.invalidateQueries({ queryKey: ['invoice-list'] })
           router.push('/dashboard/invoice')
         })}
         title="Cancel Invoice"
-        description={`Cancel ${invoice.docNumber}? This action cannot be undone. The invoice will be marked as Cancelled.`}
+        description={`Cancel ${invoice.docNumber}? This will remove it from the active invoice list.`}
         confirmLabel="Cancel Invoice"
         cancelLabel="Keep Invoice"
         variant="danger"

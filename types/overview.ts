@@ -38,7 +38,7 @@ export interface ActivityItem {
   title:      string
   description:string
   actor:      string
-  division:   Division
+  division:   Division | undefined   // undefined when backend doesn't provide division_code
   docNumber:  string
   timestamp:  string
 }
@@ -61,7 +61,7 @@ export interface OverdueItem {
   id:           string
   docNumber:    string
   clientName:   string
-  division:     Division
+  division:     Division | undefined   // undefined when backend doesn't provide per-item division
   amount:       number
   currency:     'IDR' | 'USD'
   dueDate:      string
@@ -74,7 +74,7 @@ export interface UpcomingPaymentItem {
   id:         string
   docNumber:  string
   clientName: string
-  division:   Division
+  division:   Division | undefined   // undefined when backend doesn't provide per-item division
   amount:     number
   currency:   'IDR' | 'USD'
   dueDate:    string

@@ -5,10 +5,11 @@ import type { PaymentStatus, PaymentVerificationStatus, PaymentMethod } from '@/
 const PAYMENT_STATUS_CFG: Record<PaymentStatus, {
   label: string; bg: string; text: string; border: string; dot: string
 }> = {
-  UNPAID:  { label: 'Unpaid',   bg: '#fdf7ed', text: '#7a5000', border: '#f0cd7a', dot: '#e0a020' },
-  PARTIAL: { label: 'Partial',  bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
-  PAID:    { label: 'Paid',     bg: '#eaf6f0', text: '#1a5c38', border: '#96d6b4', dot: '#1a5c38' },
-  OVERDUE: { label: 'Overdue',  bg: '#fdecea', text: '#8c1f1f', border: '#f0a0a0', dot: '#8c1f1f' },
+  UNPAID:      { label: 'Unpaid',      bg: '#fdf7ed', text: '#7a5000', border: '#f0cd7a', dot: '#e0a020' },
+  INSTALLMENT: { label: 'Installment', bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
+  PARTIAL:     { label: 'Partial',     bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
+  PAID:        { label: 'Paid',        bg: '#eaf6f0', text: '#1a5c38', border: '#96d6b4', dot: '#1a5c38' },
+  OVERDUE:     { label: 'Overdue',     bg: '#fdecea', text: '#8c1f1f', border: '#f0a0a0', dot: '#8c1f1f' },
 }
 
 export function PaymentStatusBadge({

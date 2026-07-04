@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo }    from 'react'
+import { useMemo }              from 'react'
 import { useRouter }            from 'next/navigation'
+import { useQuery }             from '@tanstack/react-query'
 import { Plus, Download }       from 'lucide-react'
 import { DataTable }            from '@/components/table/DataTable'
 import { TableFilters }         from '@/components/table/TableFilters'
@@ -9,13 +10,19 @@ import type { FilterDef }       from '@/components/table/TableFilters'
 import { PageHeader }           from '@/components/layout/PageHeader'
 import { Button }               from '@/components/ui/Button'
 import { ConfirmModal }         from '@/components/modal/BaseModal'
+import { ErrorState }           from '@/components/feedback/ErrorState'
 import { useDataTable }         from '@/hooks/useDataTable'
 import { useModal }             from '@/hooks/useModal'
 import { useRole }              from '@/hooks/useRole'
 import { buildQSColumns }       from './QSTableColumns'
-import type { QSListItem }      from '@/types/qs'
+import { fetchQSList }          from '@/lib/api/qs'
+import type { QSListItem, QSStatus, QSType }      from '@/types/qs'
+import type { Division }        from '@/types/workflow'
 
 // ─── Filter definitions ──────────────────────────────────────────
+// Values must match backend enums (types/backend/qs.ts):
+//   QSSTATUS: DRAFT | SUBMITTED | APPROVED | REJECTED
+//   QSType:   NEW | RENEWAL
 const QS_FILTERS: FilterDef[] = [
   {
     key:   'status',
@@ -23,10 +30,9 @@ const QS_FILTERS: FilterDef[] = [
     type:  'select',
     options: [
       { value: 'DRAFT',     label: 'Draft'     },
-      { value: 'PENDING',   label: 'Pending'   },
+      { value: 'SUBMITTED', label: 'Submitted' },
       { value: 'APPROVED',  label: 'Approved'  },
-      { value: 'REVISION',  label: 'Revision'  },
-      { value: 'COMPLETED', label: 'Completed' },
+      { value: 'REJECTED',  label: 'Rejected'  },
     ],
   },
   {
@@ -43,27 +49,42 @@ const QS_FILTERS: FilterDef[] = [
     label: 'Type',
     type:  'select',
     options: [
-      { value: 'NEW',   label: 'New'     },
-      { value: 'RENEW', label: 'Renewal' },
+      { value: 'NEW',     label: 'New'     },
+      { value: 'RENEWAL', label: 'Renewal' },
     ],
   },
 ]
 
-interface QSListClientProps {
-  initialData: QSListItem[]
-  totalRecords: number
-}
-
-export function QSListClient({ initialData, totalRecords }: QSListClientProps) {
+export function QSListClient() {
   const router  = useRouter()
   const { canCreate, canEdit } = useRole()
   const table   = useDataTable({ defaultPageSize: 25 })
   const archiveModal = useModal<QSListItem>()
   const invoiceModal = useModal<QSListItem>()
 
-  // In production: replace with useQuery using table.queryParams
-  const data  = initialData
-  const total = totalRecords
+  // ── Data fetching ──────────────────────────────────────────────
+  // useDataTable's queryParams is generically typed (ListQueryParams) for
+  // reuse across modules; narrow activeFilters to QS's real enum types here
+  // before calling fetchQSList (which expects QSFilters & pagination/sort).
+  // lib/api/qs.ts + lib/adapters/qs.ts handle the backend request/response mapping.
+  const qsQueryParams = {
+    page:     table.pagination.page,
+    pageSize: table.pagination.pageSize,
+    search:   table.debouncedSearch || undefined,
+    sortBy:   table.sort?.key,
+    sortDir:  table.sort?.direction,
+    status:   (table.activeFilters.status as QSStatus | undefined) || undefined,
+    division: (table.activeFilters.division as Division | undefined) || undefined,
+    type:     (table.activeFilters.type as QSType | undefined) || undefined,
+  }
+
+  const { data: result, isLoading, isError, refetch } = useQuery({
+    queryKey: ['qs-list', qsQueryParams],
+    queryFn:  () => fetchQSList(qsQueryParams),
+  })
+
+  const data  = result?.data ?? []
+  const total = result?.pagination.total ?? 0
 
   const columns = useMemo(() => buildQSColumns({
     onView:            (row) => router.push(`/dashboard/qs/${row.id}`),
@@ -115,19 +136,28 @@ export function QSListClient({ initialData, totalRecords }: QSListClientProps) {
           onFilterChange={table.onFilterChange}
           onClearFilters={table.onClearFilters}
         />
-        <DataTable<QSListItem>
-          columns={columns}
-          data={data}
-          rowKey={(row) => row.id}
-          sort={table.sort}
-          onSortChange={table.onSortChange}
-          pagination={table.fullPagination(total)}
-          onPageChange={table.onPageChange}
-          onPageSizeChange={table.onPageSizeChange}
-          onRowDoubleClick={(row) => router.push(`/dashboard/qs/${row.id}`)}
-          emptyMessage="No quotation sheets found"
-          emptyDescription="Try adjusting your search or filter criteria"
-        />
+        {isError ? (
+          <ErrorState
+            message="Failed to load quotation sheets"
+            description="An error occurred while loading data from the server. Please try again."
+            onRetry={() => refetch()}
+          />
+        ) : (
+          <DataTable<QSListItem>
+            columns={columns}
+            data={data}
+            rowKey={(row) => row.id}
+            loading={isLoading}
+            sort={table.sort}
+            onSortChange={table.onSortChange}
+            pagination={table.fullPagination(total)}
+            onPageChange={table.onPageChange}
+            onPageSizeChange={table.onPageSizeChange}
+            onRowDoubleClick={(row) => router.push(`/dashboard/qs/${row.id}`)}
+            emptyMessage="No quotation sheets found"
+            emptyDescription="Try adjusting your search or filter criteria"
+          />
+        )}
       </div>
 
       {/* ── Archive Confirm Modal ────────────────────────────── */}

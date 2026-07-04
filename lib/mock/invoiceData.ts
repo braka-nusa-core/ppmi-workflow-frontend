@@ -16,10 +16,10 @@ const baseActivity = (docNumber: string): InvoiceActivity[] => [
   {
     id: `${docNumber}-a2`,
     type: 'issued',
-    description: 'Invoice issued — status changed to Issued',
+    description: 'Invoice issued — status changed to Pending',
     actor: 'Budi Santoso',
     timestamp: daysAgo(8),
-    meta: { fromStatus: 'DRAFT', toStatus: 'ISSUED' },
+    meta: { fromStatus: 'DRAFT', toStatus: 'PENDING' },
   },
   {
     id: `${docNumber}-a3`,
@@ -27,7 +27,7 @@ const baseActivity = (docNumber: string): InvoiceActivity[] => [
     description: 'Invoice sent to insured via email',
     actor: 'Budi Santoso',
     timestamp: daysAgo(7),
-    meta: { fromStatus: 'ISSUED', toStatus: 'SENT' },
+    meta: { fromStatus: 'PENDING', toStatus: 'PENDING' },
   },
 ]
 
@@ -38,7 +38,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0143',
     insuredName: 'PT Soechi Lines Tbk', vesselName: 'MV Soechi Cilacap',
     currency: 'USD', totalAmount: 48500, paidAmount: 0, remainingAmount: 48500,
-    dueDate: daysFrom(12), status: 'SENT', paymentStatus: 'UNPAID',
+    dueDate: daysFrom(12), status: 'PENDING', paymentStatus: 'UNPAID',
     hasVoucher: false, createdAt: daysAgo(10),
   },
   {
@@ -46,7 +46,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0142',
     insuredName: 'PT Arpeni Pratama Ocean Line', vesselName: 'MV Artha Kencana',
     currency: 'USD', totalAmount: 72000, paidAmount: 72000, remainingAmount: 0,
-    dueDate: daysAgo(5), status: 'PAID', paymentStatus: 'PAID',
+    dueDate: daysAgo(5), status: 'CLOSED', paymentStatus: 'PAID',
     hasVoucher: true, voucherNumber: 'VCH-2025-0089', createdAt: daysAgo(18),
   },
   {
@@ -54,7 +54,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0140',
     insuredName: 'PT Meratus Line', vesselName: 'MV Meratus Jayapura',
     currency: 'USD', totalAmount: 34800, paidAmount: 0, remainingAmount: 34800,
-    dueDate: daysAgo(6), status: 'OVERDUE', paymentStatus: 'UNPAID',
+    dueDate: daysAgo(6), status: 'PENDING', paymentStatus: 'UNPAID',
     hasVoucher: false, createdAt: daysAgo(22),
   },
   {
@@ -62,7 +62,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0139',
     insuredName: 'CV Mitra Bahari Sentosa', vesselName: 'KM Mitra Sejahtera',
     currency: 'IDR', totalAmount: 95000000, paidAmount: 47500000, remainingAmount: 47500000,
-    dueDate: daysFrom(4), status: 'SENT', paymentStatus: 'PARTIAL',
+    dueDate: daysFrom(4), status: 'PENDING', paymentStatus: 'PARTIAL',
     hasVoucher: true, voucherNumber: 'VCH-2025-0088', createdAt: daysAgo(14),
   },
   {
@@ -70,7 +70,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0138',
     insuredName: 'PT Samudera Indonesia Tbk', vesselName: 'MV Samudera Biru',
     currency: 'USD', totalAmount: 91200, paidAmount: 91200, remainingAmount: 0,
-    dueDate: daysAgo(15), status: 'PAID', paymentStatus: 'PAID',
+    dueDate: daysAgo(15), status: 'CLOSED', paymentStatus: 'PAID',
     hasVoucher: true, voucherNumber: 'VCH-2025-0085', createdAt: daysAgo(30),
   },
   {
@@ -78,7 +78,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0137',
     insuredName: 'PT Tanjung Priok Shipping', vesselName: 'KM Priok Jaya',
     currency: 'IDR', totalAmount: 210000000, paidAmount: 0, remainingAmount: 210000000,
-    dueDate: daysFrom(18), status: 'ISSUED', paymentStatus: 'UNPAID',
+    dueDate: daysFrom(18), status: 'PENDING', paymentStatus: 'UNPAID',
     hasVoucher: false, createdAt: daysAgo(5),
   },
   {
@@ -86,7 +86,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0136',
     insuredName: 'PT Djakarta Lloyd', vesselName: 'MV Lloyd Nusantara',
     currency: 'USD', totalAmount: 28500, paidAmount: 0, remainingAmount: 28500,
-    dueDate: daysAgo(11), status: 'OVERDUE', paymentStatus: 'UNPAID',
+    dueDate: daysAgo(11), status: 'PENDING', paymentStatus: 'UNPAID',
     hasVoucher: false, createdAt: daysAgo(24),
   },
   {
@@ -102,7 +102,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0134',
     insuredName: 'PT Berlian Laju Tanker Tbk', vesselName: 'MT Berlian Ekuator',
     currency: 'USD', totalAmount: 155000, paidAmount: 155000, remainingAmount: 0,
-    dueDate: daysAgo(20), status: 'PAID', paymentStatus: 'PAID',
+    dueDate: daysAgo(20), status: 'CLOSED', paymentStatus: 'PAID',
     hasVoucher: true, voucherNumber: 'VCH-2025-0081', createdAt: daysAgo(35),
   },
   {
@@ -110,7 +110,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0133',
     insuredName: 'PT Sinar Mas Shipping', vesselName: 'MV Sinar Nusantara',
     currency: 'USD', totalAmount: 63400, paidAmount: 0, remainingAmount: 63400,
-    dueDate: daysFrom(3), status: 'SENT', paymentStatus: 'UNPAID',
+    dueDate: daysFrom(3), status: 'PENDING', paymentStatus: 'UNPAID',
     hasVoucher: false, createdAt: daysAgo(8),
   },
   {
@@ -118,7 +118,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0132',
     insuredName: 'PT Karya Sumber Energi', vesselName: 'MT Karya Mandiri',
     currency: 'IDR', totalAmount: 320000000, paidAmount: 320000000, remainingAmount: 0,
-    dueDate: daysAgo(8), status: 'PAID', paymentStatus: 'PAID',
+    dueDate: daysAgo(8), status: 'CLOSED', paymentStatus: 'PAID',
     hasVoucher: true, voucherNumber: 'VCH-2025-0079', createdAt: daysAgo(28),
   },
   {
@@ -126,7 +126,7 @@ export const MOCK_INVOICE_LIST: InvoiceListItem[] = [
     qsNumber: 'QS-2025-0131',
     insuredName: 'PT Pelayaran Nasional Indonesia', vesselName: 'KM Nusantara Abadi',
     currency: 'IDR', totalAmount: 185000000, paidAmount: 92500000, remainingAmount: 92500000,
-    dueDate: daysFrom(8), status: 'SENT', paymentStatus: 'PARTIAL',
+    dueDate: daysFrom(8), status: 'PENDING', paymentStatus: 'PARTIAL',
     hasVoucher: false, createdAt: daysAgo(12),
   },
 ]
@@ -136,7 +136,7 @@ export const MOCK_INVOICE_DETAIL: InvoiceDocument = {
   id:            'inv-001',
   docNumber:     'INV-2025-0138',
   division:      'HM',
-  status:        'SENT',
+  status:        'PENDING',
   paymentStatus: 'UNPAID',
 
   qsId:     'qs-001',

@@ -31,10 +31,10 @@ export function QSDetailHeader({
 }: QSDetailHeaderProps) {
   const router = useRouter()
 
-  const showApprove  = canVerify && qs.status === 'PENDING'
-  const showRevision = canVerify && qs.status === 'PENDING'
+  const showApprove  = canVerify && qs.status === 'SUBMITTED'
+  const showRevision = canVerify && qs.status === 'SUBMITTED'
   const showInvoice  = canCreate && qs.status === 'APPROVED' && !qs.invoiceId
-  const showEdit     = canEdit   && (qs.status === 'DRAFT' || qs.status === 'REVISION')
+  const showEdit     = canEdit   && (qs.status === 'DRAFT' || qs.status === 'REJECTED')
 
   return (
     <div
@@ -124,7 +124,7 @@ export function QSDetailHeader({
         </span>
         <WorkflowStepper
           currentStage="QS"
-          completedStages={qs.status === 'COMPLETED' || qs.invoiceId ? ['QS'] : []}
+          completedStages={qs.invoiceId ? ['QS'] : []}
         />
         {qs.invoiceId && (
           <a

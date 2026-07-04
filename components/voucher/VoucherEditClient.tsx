@@ -1,13 +1,15 @@
 'use client'
 
-import { useState }         from 'react'
-import { useRouter }        from 'next/navigation'
-import { useForm }          from 'react-hook-form'
-import { zodResolver }      from '@hookform/resolvers/zod'
-import { Save, Send, X }   from 'lucide-react'
+import { useEffect }          from 'react'
+import { useRouter }          from 'next/navigation'
+import { useForm }            from 'react-hook-form'
+import { zodResolver }        from '@hookform/resolvers/zod'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Save, Send, X }     from 'lucide-react'
 import { createVoucherSchema, type CreateVoucherFormData } from '@/lib/validations/voucher'
-import { Button }           from '@/components/ui/Button'
-import { PageHeader }       from '@/components/layout/PageHeader'
+import { fetchVoucherDetail, updateVoucher, submitVoucherForApproval } from '@/lib/api/voucher'
+import { Button }             from '@/components/ui/Button'
+import { PageHeader }         from '@/components/layout/PageHeader'
 import { QSAttachmentUpload } from '@/components/qs/QSAttachmentUpload'
 import {
   VoucherInfoSection,
@@ -16,8 +18,10 @@ import {
   VoucherApprovalSection,
   VoucherNotesSection,
 } from './VoucherFormSections'
-import { cn }               from '@/lib/utils'
-import type { VoucherDocument } from '@/types/voucher'
+import { LoadingSkeleton }    from '@/components/feedback/LoadingSkeleton'
+import { ErrorState }         from '@/components/feedback/ErrorState'
+import { useToast }           from '@/context/ToastContext'
+import { cn }                 from '@/lib/utils'
 
 const SECTIONS = [
   { id: 'voucher',   label: 'Voucher Info' },
@@ -28,15 +32,41 @@ const SECTIONS = [
   { id: 'notes',     label: 'Notes'        },
 ]
 
-export function VoucherEditClient({ vch }: { vch: VoucherDocument }) {
-  const router = useRouter()
-  const [isSaving,     setSaving]     = useState(false)
-  const [isSubmitting, setSubmitting] = useState(false)
-  const [activeSection, setActive]    = useState('voucher')
+interface VoucherEditClientProps {
+  id: string
+}
+
+export function VoucherEditClient({ id }: VoucherEditClientProps) {
+  const router      = useRouter()
+  const queryClient = useQueryClient()
+  const { success, error: toastError } = useToast()
+
+  // ── Fetch existing voucher ────────────────────────────────────
+  const { data: vch, isLoading, isError, refetch } = useQuery({
+    queryKey: ['voucher-detail', id],
+    queryFn:  () => fetchVoucherDetail(id).then((r) => r.data),
+  })
 
   const form = useForm<CreateVoucherFormData>({
     resolver: zodResolver(createVoucherSchema),
     defaultValues: {
+      invoiceId:    '',
+      division:     'PI',
+      currency:     'IDR',
+      amount:       0,
+      bankName:     '',
+      accountNumber:'',
+      accountName:  '',
+    },
+  })
+
+  const { handleSubmit, reset, formState: { errors } } = form
+  const errorCount = Object.keys(errors).length
+
+  // Populate form once data arrives
+  useEffect(() => {
+    if (!vch) return
+    reset({
       invoiceId:      vch.invoiceId,
       division:       vch.division,
       paymentType:    vch.paymentType,
@@ -51,32 +81,80 @@ export function VoucherEditClient({ vch }: { vch: VoucherDocument }) {
       approvalPIC:    vch.approvalPIC    ?? '',
       approvalNotes:  vch.approvalNotes  ?? '',
       internalNotes:  vch.internalNotes  ?? '',
+    })
+  }, [vch, reset])
+
+  // ── Save Changes mutation ─────────────────────────────────────
+  const saveMutation = useMutation({
+    mutationFn: (data: CreateVoucherFormData) => updateVoucher(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+      queryClient.invalidateQueries({ queryKey: ['voucher-detail', id] })
+      success('Voucher Updated', `${vch?.docNumber} has been updated successfully.`)
+      router.push(`/dashboard/voucher/${id}`)
+    },
+    onError: () => {
+      toastError('Update failed', 'Could not save changes. Please check your inputs and try again.')
     },
   })
 
-  const { handleSubmit, formState: { errors } } = form
-  const errorCount = Object.keys(errors).length
+  // ── Save & Submit mutation (update then submit) ───────────────
+  const submitMutation = useMutation({
+    mutationFn: async (data: CreateVoucherFormData) => {
+      await updateVoucher(id, data)
+      return submitVoucherForApproval(id)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
+      queryClient.invalidateQueries({ queryKey: ['voucher-detail', id] })
+      success('Voucher Submitted', `${vch?.docNumber} has been submitted for approval.`)
+      router.push(`/dashboard/voucher/${id}`)
+    },
+    onError: () => {
+      toastError('Submit failed', 'Could not submit the voucher. Please try again.')
+    },
+  })
 
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await new Promise((r) => setTimeout(r, 800))
-      router.push(`/dashboard/voucher/${vch.id}`)
-    } finally { setSaving(false) }
+  const scrollTo = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const onSubmit = async () => {
-    setSubmitting(true)
-    try {
-      await new Promise((r) => setTimeout(r, 1000))
-      router.push(`/dashboard/voucher/${vch.id}`)
-    } finally { setSubmitting(false) }
+  // ── Loading ───────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="page-container">
+        <LoadingSkeleton />
+      </div>
+    )
   }
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    setActive(id)
+  // ── Error ─────────────────────────────────────────────────────
+  if (isError || !vch) {
+    return (
+      <div className="page-container flex items-center justify-center min-h-[400px]">
+        <ErrorState
+          message="Failed to load voucher"
+          description="The voucher document could not be loaded for editing."
+          onRetry={() => refetch()}
+        />
+      </div>
+    )
   }
+
+  // ── Edit guard — only DRAFT or PENDING_APPROVAL ───────────────
+  if (vch.status !== 'DRAFT' && vch.status !== 'PENDING_APPROVAL') {
+    return (
+      <div className="page-container flex items-center justify-center min-h-[400px]">
+        <ErrorState
+          message="This voucher cannot be edited"
+          description={`Vouchers with status "${vch.status}" are not editable. Only Draft or Pending Approval vouchers can be modified.`}
+        />
+      </div>
+    )
+  }
+
+  const isSaving     = saveMutation.isPending
+  const isSubmitting = submitMutation.isPending
 
   return (
     <div className="flex flex-col h-full">
@@ -103,9 +181,7 @@ export function VoucherEditClient({ vch }: { vch: VoucherDocument }) {
               key={s.id} type="button" onClick={() => scrollTo(s.id)}
               className={cn(
                 'w-full text-left px-2 py-1.5 rounded text-[12px] font-medium transition-colors duration-100',
-                activeSection === s.id
-                  ? 'text-[#123d6b] bg-[#e8f3fb]'
-                  : 'text-[#3a5068] hover:text-[#18273a] hover:bg-[#edf1f5]'
+                'text-[#3a5068] hover:text-[#18273a] hover:bg-[#edf1f5]'
               )}
             >
               {s.label}
@@ -121,7 +197,7 @@ export function VoucherEditClient({ vch }: { vch: VoucherDocument }) {
         </div>
 
         <div className="flex-1 overflow-y-auto page-container pt-6">
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
               <div id="voucher"   className="pb-8">
                 <VoucherInfoSection form={form} linkedInvoiceNumber={vch.invoiceNumber} linkedQSNumber={vch.qsNumber} />
@@ -151,10 +227,18 @@ export function VoucherEditClient({ vch }: { vch: VoucherDocument }) {
           Cancel
         </Button>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" size="sm" icon={<Save size={13} />} loading={isSaving} onClick={handleSave}>
+          <Button
+            variant="secondary" size="sm" icon={<Save size={13} />}
+            loading={isSaving}
+            onClick={handleSubmit((data) => saveMutation.mutate(data))}
+          >
             Save Changes
           </Button>
-          <Button variant="primary" size="sm" icon={<Send size={13} />} loading={isSubmitting} onClick={handleSubmit(onSubmit)}>
+          <Button
+            variant="primary" size="sm" icon={<Send size={13} />}
+            loading={isSubmitting}
+            onClick={handleSubmit((data) => submitMutation.mutate(data))}
+          >
             Save & Submit
           </Button>
         </div>

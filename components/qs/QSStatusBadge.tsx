@@ -10,10 +10,9 @@ const STATUS_CONFIG: Record<QSStatus, {
   dot:    string
 }> = {
   DRAFT:     { label: 'Draft',     bg: '#f0f4f7', text: '#3a5068', border: '#b5cede', dot: '#7a8fa3' },
-  PENDING:   { label: 'Pending',   bg: '#fdf7ed', text: '#7a5000', border: '#f0cd7a', dot: '#e0a020' },
+  SUBMITTED: { label: 'Submitted', bg: '#fdf7ed', text: '#7a5000', border: '#f0cd7a', dot: '#e0a020' },
   APPROVED:  { label: 'Approved',  bg: '#eaf6f0', text: '#1a5c38', border: '#96d6b4', dot: '#1a5c38' },
-  REVISION:  { label: 'Revision',  bg: '#fdf2e8', text: '#7a3800', border: '#f0b87a', dot: '#d46e20' },
-  COMPLETED: { label: 'Completed', bg: '#e8f3fb', text: '#123d6b', border: '#93c4e5', dot: '#123d6b' },
+  REJECTED:  { label: 'Rejected',  bg: '#fdf2e8', text: '#7a3800', border: '#f0b87a', dot: '#d46e20' },
 }
 
 interface QSStatusBadgeProps {

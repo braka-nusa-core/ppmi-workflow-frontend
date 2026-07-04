@@ -1,7 +1,14 @@
 import type { Division } from './workflow'
 
 // ─── QS Specific Types ───────────────────────────────────────────
-export type QSType = 'NEW' | 'RENEW'
+
+/**
+ * Backend enum QSType: NEW | RENEWAL
+ * CHANGED from 'RENEW' → 'RENEWAL' to match backend exactly.
+ * Any component/form using 'RENEW' as a literal must be updated when
+ * QS components are integrated (not in this phase).
+ */
+export type QSType = 'NEW' | 'RENEWAL'
 
 export type InsuranceType =
   | 'P&I'
@@ -11,12 +18,18 @@ export type InsuranceType =
   | 'Cargo'
   | 'Liability'
 
+/**
+ * Backend enum QSSTATUS: DRAFT | SUBMITTED | APPROVED | REJECTED
+ * CHANGED from original PENDING/REVISION/COMPLETED:
+ *   PENDING   → SUBMITTED
+ *   REVISION  → REJECTED
+ *   COMPLETED → removed (no backend equivalent)
+ */
 export type QSStatus =
   | 'DRAFT'
-  | 'PENDING'
+  | 'SUBMITTED'
   | 'APPROVED'
-  | 'REVISION'
-  | 'COMPLETED'
+  | 'REJECTED'
 
 export interface QSDocument {
   id:            string
@@ -47,11 +60,20 @@ export interface QSDocument {
   internalNotes?: string
   invoiceId?:     string
   invoiceNumber?: string
-  createdBy:      string
+  createdBy?:     string   // CHANGED to optional — not in backend QS response (Log table only)
   createdAt:      string
+  // ADDED — backend division UUID, returned in every QS response as division_id.
+  // Required by updateQS() when changing division; carried through for convenience.
+  divisionId?:    string
   updatedBy?:     string
   updatedAt:      string
   activity?:      QSActivity[]
+
+  // ADDED — required by backend, not previously modeled in frontend
+  member?:        string   // backend required field on create; optional here so
+  leader?:        string   // existing detail-view rendering doesn't break
+  policyNumber?:  string   // backend `policy_number`
+  hasInvoice?:    boolean  // derived field; not in backend QS response directly
 }
 
 export interface QSListItem {
@@ -69,6 +91,9 @@ export interface QSListItem {
   updatedAt:      string
   hasInvoice:     boolean
   invoiceNumber?: string
+
+  // ADDED — backend always returns this; useful for table display
+  policyNumber?:  string
 }
 
 export interface QSAttachment {
@@ -129,6 +154,14 @@ export interface CreateQSPayload {
   effectiveDate:   string
   expiryDate:      string
   internalNotes?:  string
+
+  // ADDED — required by backend createQsSchema; not previously in form payload.
+  // QS create/edit forms must collect these before this phase's API can be
+  // used end-to-end (handled in the QS List/Detail/Form integration phase).
+  member?:        string
+  leader?:        string
+  policyNumber?:  string
+  status?:        QSStatus
 }
 
 export type UpdateQSPayload = Partial<CreateQSPayload> & {

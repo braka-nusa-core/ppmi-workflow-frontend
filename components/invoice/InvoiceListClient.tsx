@@ -2,6 +2,7 @@
 
 import { useMemo }             from 'react'
 import { useRouter }           from 'next/navigation'
+import { useQuery }            from '@tanstack/react-query'
 import { Plus, Download }      from 'lucide-react'
 import { DataTable }           from '@/components/table/DataTable'
 import { TableFilters }        from '@/components/table/TableFilters'
@@ -9,43 +10,28 @@ import type { FilterDef }      from '@/components/table/TableFilters'
 import { PageHeader }          from '@/components/layout/PageHeader'
 import { Button }              from '@/components/ui/Button'
 import { ConfirmModal }        from '@/components/modal/BaseModal'
+import { ErrorState }          from '@/components/feedback/ErrorState'
 import { useDataTable }        from '@/hooks/useDataTable'
 import { useModal }            from '@/hooks/useModal'
 import { useRole }             from '@/hooks/useRole'
 import { buildInvoiceColumns } from './InvoiceTableColumns'
-import type { InvoiceListItem } from '@/types/invoice'
+import { fetchInvoiceList }    from '@/lib/api/invoice'
+import type { InvoiceListItem, InvoiceStatus } from '@/types/invoice'
 
+// ─── Filter definitions ──────────────────────────────────────────
+// Values must match backend enum (types/backend/invoice.ts):
+//   InvoiceStatus: DRAFT | PENDING | VOUCHER | SHIPPED | CLOSED
 const INVOICE_FILTERS: FilterDef[] = [
   {
     key:   'status',
     label: 'Status',
     type:  'select',
     options: [
-      { value: 'DRAFT',     label: 'Draft'     },
-      { value: 'ISSUED',    label: 'Issued'    },
-      { value: 'SENT',      label: 'Sent'      },
-      { value: 'PAID',      label: 'Paid'      },
-      { value: 'OVERDUE',   label: 'Overdue'   },
-      { value: 'CANCELLED', label: 'Cancelled' },
-    ],
-  },
-  {
-    key:   'paymentStatus',
-    label: 'Payment',
-    type:  'select',
-    options: [
-      { value: 'UNPAID',  label: 'Unpaid'  },
-      { value: 'PARTIAL', label: 'Partial' },
-      { value: 'PAID',    label: 'Paid'    },
-    ],
-  },
-  {
-    key:   'division',
-    label: 'Division',
-    type:  'select',
-    options: [
-      { value: 'PI', label: 'P&I' },
-      { value: 'HM', label: 'H&M' },
+      { value: 'DRAFT',   label: 'Draft'   },
+      { value: 'PENDING', label: 'Pending' },
+      { value: 'VOUCHER', label: 'Voucher' },
+      { value: 'SHIPPED', label: 'Shipped' },
+      { value: 'CLOSED',  label: 'Closed'  },
     ],
   },
   {
@@ -55,17 +41,35 @@ const INVOICE_FILTERS: FilterDef[] = [
   },
 ]
 
-interface InvoiceListClientProps {
-  initialData:  InvoiceListItem[]
-  totalRecords: number
-}
-
-export function InvoiceListClient({ initialData, totalRecords }: InvoiceListClientProps) {
+export function InvoiceListClient() {
   const router = useRouter()
   const { canCreate, canEdit } = useRole()
   const table        = useDataTable({ defaultPageSize: 25 })
   const voucherModal = useModal<InvoiceListItem>()
   const sentModal    = useModal<InvoiceListItem>()
+
+  // ── Data fetching ──────────────────────────────────────────────
+  // useDataTable's queryParams is generically typed (ListQueryParams) for
+  // reuse across modules; narrow activeFilters to Invoice's real enum types
+  // here before calling fetchInvoiceList (which expects InvoiceFilters &
+  // pagination/sort). lib/api/invoice.ts + lib/adapters/invoice.ts handle
+  // the backend request/response mapping.
+  const invoiceQueryParams = {
+    page:     table.pagination.page,
+    pageSize: table.pagination.pageSize,
+    search:   table.debouncedSearch || undefined,
+    sortBy:   table.sort?.key,
+    sortDir:  table.sort?.direction,
+    status:   (table.activeFilters.status as InvoiceStatus | undefined) || undefined,
+  }
+
+  const { data: result, isLoading, isError, refetch } = useQuery({
+    queryKey: ['invoice-list', invoiceQueryParams],
+    queryFn:  () => fetchInvoiceList(invoiceQueryParams),
+  })
+
+  const data  = result?.data ?? []
+  const total = result?.pagination.total ?? 0
 
   const columns = useMemo(() => buildInvoiceColumns({
     onView:            (row) => router.push(`/dashboard/invoice/${row.id}`),
@@ -112,19 +116,28 @@ export function InvoiceListClient({ initialData, totalRecords }: InvoiceListClie
           onFilterChange={table.onFilterChange}
           onClearFilters={table.onClearFilters}
         />
-        <DataTable<InvoiceListItem>
-          columns={columns}
-          data={initialData}
-          rowKey={(row) => row.id}
-          sort={table.sort}
-          onSortChange={table.onSortChange}
-          pagination={table.fullPagination(totalRecords)}
-          onPageChange={table.onPageChange}
-          onPageSizeChange={table.onPageSizeChange}
-          onRowDoubleClick={(row) => router.push(`/dashboard/invoice/${row.id}`)}
-          emptyMessage="No invoices found"
-          emptyDescription="Try adjusting your search or filter criteria"
-        />
+        {isError ? (
+          <ErrorState
+            message="Failed to load invoices"
+            description="An error occurred while loading data from the server. Please try again."
+            onRetry={() => refetch()}
+          />
+        ) : (
+          <DataTable<InvoiceListItem>
+            columns={columns}
+            data={data}
+            rowKey={(row) => row.id}
+            loading={isLoading}
+            sort={table.sort}
+            onSortChange={table.onSortChange}
+            pagination={table.fullPagination(total)}
+            onPageChange={table.onPageChange}
+            onPageSizeChange={table.onPageSizeChange}
+            onRowDoubleClick={(row) => router.push(`/dashboard/invoice/${row.id}`)}
+            emptyMessage="No invoices found"
+            emptyDescription="Try adjusting your search or filter criteria"
+          />
+        )}
       </div>
 
       {/* Generate Voucher confirm */}

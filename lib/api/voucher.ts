@@ -7,23 +7,70 @@ import type {
   UpdateVoucherPayload,
   VoucherStatus,
 } from '@/types/voucher'
+import type { BackendVoucherStatus } from '@/types/backend/voucher'
+import {
+  mapCreateVoucherPayload,
+  mapUpdateVoucherPayload,
+} from '@/lib/adapters/voucher'
 
 const BASE = '/vouchers'
 
-export const fetchVoucherList = (params: ListQueryParams): Promise<PaginatedResponse<VoucherListItem>> =>
-  get<PaginatedResponse<VoucherListItem>>(BASE, { params })
+// ─── Backend envelope shape ───────────────────────────────────────
+interface BackendVoucherListData {
+  items:        VoucherListItem[]
+  total_pages:  number
+  current_page: number
+}
+
+interface BackendVoucherListEnvelope {
+  success:     boolean
+  status_code: number
+  data:        BackendVoucherListData
+}
+
+export async function fetchVoucherList(params: ListQueryParams): Promise<PaginatedResponse<VoucherListItem>> {
+  const envelope = await get<BackendVoucherListEnvelope>(BASE, { params })
+  const pageSize = (params.pageSize ?? 25)
+  return {
+    success: true,
+    data:    envelope.data.items,
+    pagination: {
+      page:       envelope.data.current_page,
+      pageSize,
+      total:      envelope.data.total_pages * pageSize,
+      totalPages: envelope.data.total_pages,
+    },
+  }
+}
 
 export const fetchVoucherDetail = (id: string): Promise<ApiResponse<VoucherDocument>> =>
   get<ApiResponse<VoucherDocument>>(`${BASE}/${id}`)
 
-export const createVoucher = (payload: CreateVoucherPayload): Promise<ApiResponse<VoucherDocument>> =>
-  post<ApiResponse<VoucherDocument>>(BASE, payload)
+/**
+ * POST /vouchers
+ * @param payload  Frontend form data (camelCase)
+ * @param status   'DRAFT' | 'SUBMITTED' — required by backend Zod schema
+ */
+export async function createVoucher(
+  payload: CreateVoucherPayload,
+  status: BackendVoucherStatus = 'DRAFT',
+): Promise<ApiResponse<VoucherDocument>> {
+  return post<ApiResponse<VoucherDocument>>(BASE, mapCreateVoucherPayload(payload, status))
+}
 
 export const createVoucherFromInvoice = (invoiceId: string): Promise<ApiResponse<VoucherDocument>> =>
   post<ApiResponse<VoucherDocument>>(`${BASE}/from-invoice/${invoiceId}`)
 
-export const updateVoucher = (id: string, payload: UpdateVoucherPayload): Promise<ApiResponse<VoucherDocument>> =>
-  put<ApiResponse<VoucherDocument>>(`${BASE}/${id}`, payload)
+/**
+ * PUT /vouchers/:id
+ * Uses mapUpdateVoucherPayload to convert camelCase → snake_case PATCH body.
+ */
+export async function updateVoucher(
+  id: string,
+  payload: UpdateVoucherPayload,
+): Promise<ApiResponse<VoucherDocument>> {
+  return put<ApiResponse<VoucherDocument>>(`${BASE}/${id}`, mapUpdateVoucherPayload(payload))
+}
 
 export const updateVoucherStatus = (id: string, status: VoucherStatus): Promise<ApiResponse<VoucherDocument>> =>
   patch<ApiResponse<VoucherDocument>>(`${BASE}/${id}/status`, { status })

@@ -219,9 +219,10 @@ export function AttachmentsPanel({ attachments }: { attachments?: QSDocument['at
 
 // ─── Internal Notes ──────────────────────────────────────────────
 export function NotesPanel({ notes }: { notes?: string }) {
+  const hasNotes = !!notes && notes !== '-'
   return (
     <DetailSection icon={StickyNote} title="Internal Notes" id="notes">
-      {notes ? (
+      {hasNotes ? (
         <p className="text-[13px] text-[#18273a] leading-relaxed whitespace-pre-wrap bg-[#f7f9fb] border border-[#edf1f5] rounded-md px-3 py-3">
           {notes}
         </p>

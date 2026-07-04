@@ -14,6 +14,13 @@ import { formatRelativeTime } from '@/lib/format'
 import type { ActivityItem, ActivityType } from '@/types/overview'
 import { DivisionBadge } from '@/components/ui/Badge'
 
+// ─── Fallback for unmapped activity types ────────────────────────
+// Prevents runtime crash when backend derives an ActivityType value
+// that doesn't exist in the map (e.g. VIEW or OTHER actions).
+const FALLBACK_CONFIG = {
+  icon: FilePlus, iconBg: 'bg-[#f0f4f7]', iconText: 'text-[#7a8fa3]', label: 'Activity',
+}
+
 // ─── Activity type config ────────────────────────────────────────
 const ACTIVITY_CONFIG: Record<ActivityType, {
   icon:     React.ElementType
@@ -60,9 +67,13 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
 
       {/* Feed */}
       <div className="divide-y divide-[#f7f9fb]">
+        {items.length === 0 && (
+          <p className="px-5 py-6 text-[12px] text-[#7a8fa3]">No recent activity</p>
+        )}
         {items.map((item) => {
-          const config  = ACTIVITY_CONFIG[item.type]
-          const Icon    = config.icon
+          // Fallback prevents crash when ActivityType is unrecognised
+          const config = ACTIVITY_CONFIG[item.type] ?? FALLBACK_CONFIG
+          const Icon   = config.icon
 
           return (
             <div
@@ -70,7 +81,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
               className={cn(
                 'flex items-start gap-3 px-5 py-3.5',
                 'hover:bg-[#f7f9fb] transition-colors duration-100',
-                item.type === 'payment_overdue' && 'bg-[#fffaf9]',
+                item.type === 'payment_overdue'   && 'bg-[#fffaf9]',
                 item.type === 'document_rejected' && 'bg-[#fffaf9]',
               )}
             >
@@ -90,10 +101,13 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
                       <span className="text-[12px] font-semibold text-[#18273a] leading-tight">
                         {item.title}
                       </span>
-                      <DivisionBadge division={item.division} />
-                      <span className="text-[11px] font-medium text-[#7a8fa3]">
-                        {item.docNumber}
-                      </span>
+                      {/* Division badge only rendered when division is known */}
+                      {item.division && <DivisionBadge division={item.division} />}
+                      {item.docNumber && (
+                        <span className="text-[11px] font-medium text-[#7a8fa3]">
+                          {item.docNumber}
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-[#3a5068] leading-snug">
                       {item.description}

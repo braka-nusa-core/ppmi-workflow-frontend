@@ -1,52 +1,126 @@
-import { get, post, put, patch, del } from '@/lib/api/client'
-import type { ApiResponse, PaginatedResponse, ListQueryParams } from '@/types/api'
+/**
+ * lib/api/invoice.ts
+ *
+ * Invoice API layer — aligned with confirmed backend contract:
+ *   GET    /invoices       → list with pagination + filters
+ *   GET    /invoices/:id   → single invoice detail
+ *   POST   /invoices       → create
+ *   PATCH  /invoices/:id   → update (NOT PUT)
+ *   DELETE /invoices/:id   → soft delete
+ *
+ * Non-existent endpoints REMOVED:
+ *   POST  /invoices/from-qs/:id    (no backend equivalent)
+ *   PATCH /invoices/:id/status     (status is updated via PATCH /invoices/:id body)
+ *   PATCH /invoices/:id/mark-sent  (no backend equivalent — no SENT status)
+ *   POST  /invoices/:id/advance    (no backend equivalent — voucher created via POST /vouchers)
+ *   GET   /invoices/:id/pdf        (no backend equivalent)
+ *
+ * Status transitions are performed by calling updateInvoice() with
+ * { status: 'PENDING' | 'VOUCHER' | 'CLOSED' }. SHIPPED is set
+ * automatically by the backend when a shipment is created.
+ */
+
+import { get, post, patch, del } from '@/lib/api/client'
+import type { PaginatedResponse } from '@/types/api'
+import type { InvoiceListItem, InvoiceDocument, CreateInvoicePayload, UpdateInvoicePayload, InvoiceFilters } from '@/types/invoice'
 import type {
-  InvoiceDocument,
-  InvoiceListItem,
-  CreateInvoicePayload,
-  UpdateInvoicePayload,
-  InvoiceStatus
-} from '@/types/invoice'
+  BackendInvoiceListEnvelope,
+  BackendInvoiceDetailEnvelope,
+  BackendInvoiceMutationEnvelope,
+} from '@/types/backend/invoice'
+import {
+  mapInvoiceListItem,
+  mapInvoiceDetail,
+  mapCreateInvoicePayload,
+  mapUpdateInvoicePayload,
+  mapInvoiceQueryParams,
+  mapInvoiceListPagination,
+} from '@/lib/adapters/invoice'
 
 const BASE = '/invoices'
 
-export async function fetchInvoiceList(params: ListQueryParams): Promise<PaginatedResponse<InvoiceListItem>> {
-  return get<PaginatedResponse<InvoiceListItem>>(BASE, { params })
+// ─── List ─────────────────────────────────────────────────────────
+/**
+ * GET /invoices
+ * Returns a paginated list of invoice records.
+ * Adapts backend { items, total_pages, current_page } →
+ * frontend PaginatedResponse<InvoiceListItem> shape.
+ */
+export async function fetchInvoiceList(
+  filters: InvoiceFilters & {
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    sortDir?: 'asc' | 'desc'
+  } = {}
+): Promise<PaginatedResponse<InvoiceListItem>> {
+  const params = mapInvoiceQueryParams(filters)
+  const envelope = await get<BackendInvoiceListEnvelope>(BASE, { params })
+
+  const items = envelope.data.items.map(mapInvoiceListItem)
+  const pageSize = filters.pageSize ?? 10
+
+  return mapInvoiceListPagination(
+    items,
+    envelope.data.total_pages,
+    envelope.data.current_page,
+    pageSize
+  )
 }
 
-export async function fetchInvoiceDetail(id: string): Promise<ApiResponse<InvoiceDocument>> {
-  return get<ApiResponse<InvoiceDocument>>(`${BASE}/${id}`)
+// ─── Detail ───────────────────────────────────────────────────────
+/**
+ * GET /invoices/:id
+ * Returns a single invoice document.
+ */
+export async function fetchInvoiceDetail(id: string): Promise<InvoiceDocument> {
+  const envelope = await get<BackendInvoiceDetailEnvelope>(`${BASE}/${id}`)
+  return mapInvoiceDetail(envelope.data)
 }
 
-export async function createInvoice(payload: CreateInvoicePayload): Promise<ApiResponse<InvoiceDocument>> {
-  return post<ApiResponse<InvoiceDocument>>(BASE, payload)
+// ─── Create ───────────────────────────────────────────────────────
+/**
+ * POST /invoices
+ * Creates a new invoice record linked to a QS document.
+ */
+export async function createInvoice(payload: CreateInvoicePayload): Promise<InvoiceDocument> {
+  const backendPayload = mapCreateInvoicePayload(payload)
+  const envelope = await post<BackendInvoiceMutationEnvelope>(BASE, backendPayload)
+  return mapInvoiceDetail(envelope.data)
 }
 
-export async function createInvoiceFromQS(qsId: string): Promise<ApiResponse<InvoiceDocument>> {
-  return post<ApiResponse<InvoiceDocument>>(`${BASE}/from-qs/${qsId}`)
+// ─── Update ───────────────────────────────────────────────────────
+/**
+ * PATCH /invoices/:id  (NOT PUT — backend uses PATCH for updates)
+ * Updates one or more fields on an existing invoice record.
+ * Also used for status transitions: pass { status: 'VOUCHER' } etc.
+ */
+export async function updateInvoice(
+  id: string,
+  payload: UpdateInvoicePayload
+): Promise<InvoiceDocument> {
+  const backendPayload = mapUpdateInvoicePayload(payload)
+  const envelope = await patch<BackendInvoiceMutationEnvelope>(`${BASE}/${id}`, backendPayload)
+  return mapInvoiceDetail(envelope.data)
 }
 
-export async function updateInvoice(id: string, payload: UpdateInvoicePayload): Promise<ApiResponse<InvoiceDocument>> {
-  return put<ApiResponse<InvoiceDocument>>(`${BASE}/${id}`, payload)
+// ─── Delete ───────────────────────────────────────────────────────
+/**
+ * DELETE /invoices/:id
+ * Soft-deletes the invoice record (sets is_deleted = true in DB).
+ */
+export async function deleteInvoice(id: string): Promise<void> {
+  await del<{ success: boolean; status_code: number }>(`${BASE}/${id}`)
 }
 
-export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<ApiResponse<InvoiceDocument>> {
-  return patch<ApiResponse<InvoiceDocument>>(`${BASE}/${id}/status`, { status })
+// ─── Convenience wrappers ─────────────────────────────────────────
+
+/** Mark an invoice PENDING (status: DRAFT → PENDING) */
+export async function submitInvoice(id: string): Promise<InvoiceDocument> {
+  return updateInvoice(id, { status: 'PENDING' })
 }
 
-export async function markInvoiceSent(id: string): Promise<ApiResponse<InvoiceDocument>> {
-  return patch<ApiResponse<InvoiceDocument>>(`${BASE}/${id}/mark-sent`)
-}
-
-export async function advanceToVoucher(id: string): Promise<ApiResponse<{ voucherId: string; voucherNumber: string }>> {
-  return post<ApiResponse<{ voucherId: string; voucherNumber: string }>>(`${BASE}/${id}/advance`)
-}
-
-export async function deleteInvoice(id: string): Promise<ApiResponse<void>> {
-  return del<ApiResponse<void>>(`${BASE}/${id}`)
-}
-
-export async function downloadInvoicePDF(id: string): Promise<Blob> {
-  const res = await fetch(`${BASE}/${id}/pdf`)
-  return res.blob()
+/** Close an invoice (status: → CLOSED) */
+export async function closeInvoice(id: string): Promise<InvoiceDocument> {
+  return updateInvoice(id, { status: 'CLOSED' })
 }

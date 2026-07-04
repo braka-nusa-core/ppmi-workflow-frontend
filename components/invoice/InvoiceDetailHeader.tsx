@@ -33,10 +33,10 @@ export function InvoiceDetailHeader({
   const router = useRouter()
 
   const showIssue   = canEdit   && invoice.status === 'DRAFT'
-  const showSent    = canEdit   && invoice.status === 'ISSUED'
-  const showVoucher = canCreate && invoice.status === 'SENT' && !invoice.voucherId
-  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'ISSUED')
-  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'ISSUED')
+  const showSent    = canEdit   && invoice.status === 'PENDING'
+  const showVoucher = canCreate && invoice.status === 'PENDING' && !invoice.voucherId
+  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
+  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
 
   // Build linked workflow nodes
   const workflowLinks = [
@@ -52,7 +52,7 @@ export function InvoiceDetailHeader({
       docNumber: invoice.docNumber,
       href:     `/dashboard/invoice/${invoice.id}`,
       isActive: true,
-      isDone:   invoice.status === 'PAID',
+      isDone:   invoice.status === 'CLOSED',
     },
     ...(invoice.voucherId ? [{
       stage:    'VOUCHER' as const,

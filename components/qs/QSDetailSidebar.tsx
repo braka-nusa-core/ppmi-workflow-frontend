@@ -41,10 +41,10 @@ export function QSDetailSidebar({
   onArchive,
 }: QSDetailSidebarProps) {
 
-  const showApprove  = canVerify && qs.status === 'PENDING'
-  const showRevision = canVerify && qs.status === 'PENDING'
+  const showApprove  = canVerify && qs.status === 'SUBMITTED'
+  const showRevision = canVerify && qs.status === 'SUBMITTED'
   const showInvoice  = canCreate && qs.status === 'APPROVED' && !qs.invoiceId
-  const showEdit     = canEdit   && (qs.status === 'DRAFT' || qs.status === 'REVISION')
+  const showEdit     = canEdit   && (qs.status === 'DRAFT' || qs.status === 'REJECTED')
 
   return (
     <aside className="flex flex-col gap-4 w-[264px] flex-shrink-0">
@@ -143,11 +143,7 @@ export function QSDetailSidebar({
         </p>
         <WorkflowStepper
           currentStage="QS"
-          completedStages={
-            qs.status === 'COMPLETED' || qs.invoiceId
-              ? ['QS']
-              : []
-          }
+          completedStages={qs.invoiceId ? ['QS'] : []}
           compact
         />
         <p className="text-[11px] text-[#7a8fa3] mt-3">

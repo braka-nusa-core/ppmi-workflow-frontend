@@ -3,9 +3,11 @@ import type { Division } from './workflow'
 // ─── Payment-specific status ─────────────────────────────────────
 export type PaymentStatus =
   | 'UNPAID'
-  | 'PARTIAL'
+  | 'INSTALLMENT'   // backend canonical value for partial payment
   | 'PAID'
-  | 'OVERDUE'
+  // Frontend-derived display values (not in backend enum):
+  | 'PARTIAL'       // legacy alias shown in UI; mapped from INSTALLMENT
+  | 'OVERDUE'       // computed: UNPAID/INSTALLMENT + dueDate < today
 
 export type PaymentVerificationStatus =
   | 'UNVERIFIED'
