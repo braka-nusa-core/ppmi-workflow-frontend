@@ -16,7 +16,7 @@ import { useModal }            from '@/hooks/useModal'
 import { useRole }             from '@/hooks/useRole'
 import { useToast }            from '@/context/ToastContext'
 import { buildVoucherColumns } from './VoucherTableColumns'
-import { fetchVoucherList, approveVoucher, advanceToPayment } from '@/lib/api/voucher'
+import { fetchVoucherList, updateVoucher } from '@/lib/api/voucher'
 import type { VoucherListItem, VoucherStatus, VoucherPaymentType } from '@/types/voucher'
 import type { Division } from '@/types/workflow'
 
@@ -24,19 +24,9 @@ const VOUCHER_FILTERS: FilterDef[] = [
   {
     key: 'status', label: 'Status', type: 'select',
     options: [
-      { value: 'DRAFT',            label: 'Draft'            },
-      { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
-      { value: 'APPROVED',         label: 'Approved'         },
-      { value: 'PROCESSED',        label: 'Processed'        },
-      { value: 'CANCELLED',        label: 'Cancelled'        },
-    ],
-  },
-  {
-    key: 'approvalStatus', label: 'Approval', type: 'select',
-    options: [
-      { value: 'WAITING',  label: 'Waiting'  },
-      { value: 'APPROVED', label: 'Approved' },
-      { value: 'REJECTED', label: 'Rejected' },
+      { value: 'DRAFT',   label: 'Draft'   },
+      { value: 'PENDING', label: 'Pending' },
+      { value: 'CLOSED',  label: 'Closed'  },
     ],
   },
   {
@@ -65,7 +55,6 @@ export function VoucherListClient() {
   const { success, error: toastError }    = useToast()
   const table        = useDataTable({ defaultPageSize: 25 })
   const approveModal = useModal<VoucherListItem>()
-  const paymentModal = useModal<VoucherListItem>()
 
   // ── Typed query params ────────────────────────────────────────
   const voucherQueryParams = {
@@ -75,7 +64,6 @@ export function VoucherListClient() {
     sortBy:         table.sort?.key,
     sortDir:        table.sort?.direction,
     status:         (table.activeFilters.status        as VoucherStatus     | undefined) || undefined,
-    approvalStatus: (table.activeFilters.approvalStatus                     as string   | undefined) || undefined,
     division:       (table.activeFilters.division       as Division          | undefined) || undefined,
     paymentType:    (table.activeFilters.paymentType    as VoucherPaymentType| undefined) || undefined,
   }
@@ -90,8 +78,10 @@ export function VoucherListClient() {
 
 
   // ── Quick-approve from list ───────────────────────────────────
+  // No dedicated /approve endpoint exists on the backend — use the
+  // generic PATCH /vouchers/:id, same pattern as QS's approveQS().
   const approveMutation = useMutation({
-    mutationFn: (id: string) => approveVoucher(id),
+    mutationFn: (id: string) => updateVoucher(id, { status: 'CLOSED' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
       success('Voucher Approved', `${approveModal.data?.docNumber} has been approved.`)
@@ -102,35 +92,16 @@ export function VoucherListClient() {
     },
   })
 
-  // ── Advance to payment from list ──────────────────────────────
-  const paymentMutation = useMutation({
-    mutationFn: (id: string) => advanceToPayment(id),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
-      success('Payment Generated', 'Payment record has been created.')
-      paymentModal.close()
-      if (res.data?.paymentId) {
-        router.push(`/dashboard/payment/${res.data.paymentId}`)
-      } else {
-        router.push('/dashboard/payment')
-      }
-    },
-    onError: () => {
-      toastError('Failed', 'Could not generate payment. Please try again.')
-      paymentModal.close()
-    },
-  })
-
   const columns = useMemo(() => buildVoucherColumns({
     onView:            (row) => router.push(`/dashboard/voucher/${row.id}`),
     onEdit:            (row) => router.push(`/dashboard/voucher/${row.id}/edit`),
     onApprove:         (row) => approveModal.open(row),
-    onGeneratePayment: (row) => paymentModal.open(row),
+    onGeneratePayment: (row) => router.push(`/dashboard/payment/new?voucherId=${row.id}`),
     onDownload:        (_row) => { /* PDF download wired in detail page */ },
     canEdit,
     canVerify,
     canCreate,
-  }), [canEdit, canVerify, canCreate, router, approveModal, paymentModal])
+  }), [canEdit, canVerify, canCreate, router, approveModal])
 
   return (
     <>
@@ -200,18 +171,6 @@ export function VoucherListClient() {
         loading={approveMutation.isPending}
       />
 
-      {/* Generate Payment */}
-      <ConfirmModal
-        open={paymentModal.isOpen}
-        onClose={paymentModal.close}
-        onConfirm={() => paymentModal.data && paymentMutation.mutate(paymentModal.data.id)}
-        title="Generate Payment"
-        description={`Generate a payment record from ${paymentModal.data?.docNumber}? This advances the workflow to the Payment stage.`}
-        confirmLabel="Generate Payment"
-        cancelLabel="Cancel"
-        variant="primary"
-        loading={paymentMutation.isPending}
-      />
     </>
   )
 }

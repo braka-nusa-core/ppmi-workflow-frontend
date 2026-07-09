@@ -6,7 +6,7 @@ interface Props { params: { id: string } }
 export const metadata: Metadata = { title: 'Edit Voucher | PPMI Flow' }
 
 export default function VoucherEditPage({ params }: Props) {
-  // VoucherEditClient self-fetches, enforces the DRAFT/PENDING_APPROVAL
+  // VoucherEditClient self-fetches, enforces the DRAFT/PENDING
   // edit guard, and handles its own loading/error states.
   return <VoucherEditClient id={params.id} />
 }

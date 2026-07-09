@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { cn }                    from '@/lib/utils'
 import { formatDateTime, formatCurrency } from '@/lib/format'
 import type { VoucherDocument }  from '@/types/voucher'
-import { VoucherStatusBadge, ApprovalStatusBadge, PaymentTypeBadge } from './VoucherStatusBadge'
+import { VoucherStatusBadge, PaymentTypeBadge } from './VoucherStatusBadge'
 import { DivisionBadge }         from '@/components/ui/Badge'
 import { Button }                from '@/components/ui/Button'
 
@@ -30,11 +30,11 @@ export function VoucherDetailSidebar({
   canEdit, canVerify, canCreate,
   onApprove, onReject, onPayment, onDownload, onCancel, onEdit,
 }: VoucherDetailSidebarProps) {
-  const showApprove = canVerify && vch.approvalStatus === 'WAITING' && vch.status === 'PENDING_APPROVAL'
-  const showReject  = canVerify && vch.approvalStatus === 'WAITING' && vch.status === 'PENDING_APPROVAL'
-  const showPayment = canCreate && vch.status === 'APPROVED' && !vch.paymentId
-  const showEdit    = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING_APPROVAL')
-  const showCancel  = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING_APPROVAL')
+  const showApprove = canVerify && vch.status === 'PENDING'
+  const showReject  = canVerify && vch.status === 'PENDING'
+  const showPayment = canCreate && vch.status === 'CLOSED' && !vch.paymentId
+  const showEdit    = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING')
+  const showCancel  = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING')
 
   return (
     <aside className="flex flex-col gap-4 w-[264px] flex-shrink-0">
@@ -46,7 +46,6 @@ export function VoucherDetailSidebar({
           <VoucherStatusBadge status={vch.status} />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <ApprovalStatusBadge status={vch.approvalStatus} />
           <DivisionBadge division={vch.division} />
         </div>
         <div className="flex items-center gap-2 pt-1 border-t border-[#f0f4f7]">
@@ -102,8 +101,7 @@ export function VoucherDetailSidebar({
         <div className="flex flex-col gap-2">
           {[
             { label: 'Submitted',    done: vch.status !== 'DRAFT' },
-            { label: 'Approved',     done: vch.approvalStatus === 'APPROVED' },
-            { label: 'Processed',    done: vch.status === 'PROCESSED' },
+            { label: 'Processed',    done: vch.status === 'CLOSED' },
             { label: 'Payment Done', done: !!vch.paymentId },
           ].map((step) => (
             <div key={step.label} className="flex items-center gap-2">

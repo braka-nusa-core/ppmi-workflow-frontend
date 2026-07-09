@@ -4,7 +4,7 @@ import { Wallet, CreditCard, Download, CheckCircle } from 'lucide-react'
 import { formatCurrency, formatDateShort }  from '@/lib/format'
 import type { ColumnDef }                   from '@/components/table/DataTable'
 import type { VoucherListItem }             from '@/types/voucher'
-import { VoucherStatusBadge, ApprovalStatusBadge, PaymentTypeBadge } from './VoucherStatusBadge'
+import { VoucherStatusBadge, PaymentTypeBadge } from './VoucherStatusBadge'
 import { DivisionBadge }                    from '@/components/ui/Badge'
 import { TableActions }                     from '@/components/table/TableActions'
 
@@ -86,10 +86,6 @@ export function buildVoucherColumns(a: VoucherTableActionsConfig): ColumnDef<Vou
       render: (row) => <VoucherStatusBadge status={row.status} />,
     },
     {
-      key: 'approvalStatus', header: 'Approval', width: 136,
-      render: (row) => <ApprovalStatusBadge status={row.approvalStatus} />,
-    },
-    {
       key: 'createdAt', header: 'Created', width: 96, sortable: true,
       render: (row) => (
         <div>
@@ -109,7 +105,7 @@ export function buildVoucherColumns(a: VoucherTableActionsConfig): ColumnDef<Vou
         <TableActions
           onView={() => a.onView(row)}
           onEdit={
-            a.canEdit && (row.status === 'DRAFT' || row.status === 'PENDING_APPROVAL')
+            a.canEdit && (row.status === 'DRAFT' || row.status === 'PENDING')
               ? () => a.onEdit(row)
               : undefined
           }
@@ -118,13 +114,13 @@ export function buildVoucherColumns(a: VoucherTableActionsConfig): ColumnDef<Vou
               label: 'Approve',
               icon:  <CheckCircle size={13} />,
               onClick: () => a.onApprove(row),
-              hidden: !a.canVerify || row.approvalStatus !== 'WAITING' || row.status !== 'PENDING_APPROVAL',
+              hidden: !a.canVerify || row.status !== 'PENDING',
             },
             {
               label: 'Generate Payment',
               icon:  <CreditCard size={13} />,
               onClick: () => a.onGeneratePayment(row),
-              hidden: row.hasPayment || row.status !== 'APPROVED' || !a.canCreate,
+              hidden: row.hasPayment || row.status !== 'CLOSED' || !a.canCreate,
             },
             {
               label: 'Download PDF',

@@ -5,14 +5,14 @@ import type {
   BackendPaymentListEnvelope,
   BackendPaymentDetailEnvelope,
   BackendPaymentMutationEnvelope,
-  BackendCreatePaymentPayload,
-  BackendUpdatePaymentPayload,
 } from '@/types/backend/payment'
 import {
   mapPaymentListItem,
   mapPaymentDetail,
   mapPaymentQueryParams,
   mapPaymentListPagination,
+  mapCreatePaymentPayload,
+  mapUpdatePaymentPayload,
 } from '@/lib/adapters/payment'
 
 const BASE = '/payments'
@@ -44,9 +44,23 @@ export async function fetchPaymentDetail(id: string): Promise<PaymentDocument> {
  * POST /payments
  * Creates a new payment installment record linked to a Voucher.
  * The backend stores each installment as a separate Payment row.
+ *
+ * @param payload  Frontend form data (camelCase) — mapped to the
+ *                 backend's snake_case contract via mapCreatePaymentPayload,
+ *                 same pattern as createQS()/createVoucher().
  */
-export async function createPayment(payload: BackendCreatePaymentPayload): Promise<PaymentDocument> {
-  const envelope = await post<BackendPaymentMutationEnvelope>(BASE, payload)
+export async function createPayment(payload: {
+  voucherId:         string
+  installmentNumber: number
+  paymentDate?:      string | null
+  dueDate:           string
+  paidAmount:        number
+  remainingAmount:   number
+  paymentStatus:     'UNPAID' | 'INSTALLMENT' | 'PAID'
+  remarks:           string
+  paymentProof?:     string
+}): Promise<PaymentDocument> {
+  const envelope = await post<BackendPaymentMutationEnvelope>(BASE, mapCreatePaymentPayload(payload))
   return mapPaymentDetail(envelope.data)
 }
 
@@ -56,12 +70,27 @@ export async function createPayment(payload: BackendCreatePaymentPayload): Promi
  * Updates one or more fields on an existing payment record.
  * Used for: recording payment receipt (update paid_amount, remaining_amount, payment_status)
  *           updating due date, remarks, etc.
+ *
+ * @param payload  Frontend camelCase fields — mapped to the backend's
+ *                 snake_case contract via mapUpdatePaymentPayload, same
+ *                 pattern as createPayment(). This is also where
+ *                 paymentDate/dueDate get converted to full ISO-8601 via
+ *                 dateInputToISO — callers must NOT build the raw
+ *                 backend payload (with payment_date as bare YYYY-MM-DD)
+ *                 themselves.
  */
 export async function updatePayment(
   id: string,
-  payload: BackendUpdatePaymentPayload
+  payload: {
+    paidAmount?:      number
+    remainingAmount?: number
+    paymentStatus?:   PaymentListItem['paymentStatus']
+    paymentDate?:     string | null
+    dueDate?:         string
+    remarks?:         string
+  }
 ): Promise<PaymentDocument> {
-  const envelope = await patch<BackendPaymentMutationEnvelope>(`${BASE}/${id}`, payload)
+  const envelope = await patch<BackendPaymentMutationEnvelope>(`${BASE}/${id}`, mapUpdatePaymentPayload(payload))
   return mapPaymentDetail(envelope.data)
 }
 
@@ -88,10 +117,10 @@ export async function recordPaymentReceipt(
 ): Promise<PaymentDocument> {
   const status = remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT'
   return updatePayment(id, {
-    paid_amount:      paidAmount,
-    remaining_amount: remainingAmount,
-    payment_date:     paymentDate,
-    payment_status:   status,
+    paidAmount,
+    remainingAmount,
+    paymentDate,
+    paymentStatus: status,
     ...(remarks ? { remarks } : {}),
   })
 }

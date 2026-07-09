@@ -26,18 +26,15 @@ export const recordInstallmentSchema = z.object({
 export type RecordInstallmentFormData = z.infer<typeof recordInstallmentSchema>
 
 export const createPaymentSchema = z.object({
-  voucherId:     z.string().min(1, 'Voucher is required'),
-  division:      z.enum(['PI', 'HM'], { required_error: 'Division is required' }),
-  currency:      z.enum(['IDR', 'USD']),
-  totalAmount:   z.number({ invalid_type_error: 'Amount is required' }).min(1, 'Amount must be greater than 0'),
-  dueDate:       z.string().min(1, 'Due date is required'),
-  isInstallment: z.boolean(),
-  installmentCount: z.number().min(2).max(24).optional(),
-  internalNotes: z.string().optional(),
-}).refine(
-  (d) => !d.isInstallment || (d.installmentCount && d.installmentCount >= 2),
-  { message: 'Installment count must be at least 2', path: ['installmentCount'] }
-)
+  voucherId:         z.string().min(1, 'Voucher is required'),
+  installmentNumber: z.number({ invalid_type_error: 'Installment number is required' }).int().min(1, 'Installment number must be at least 1'),
+  paymentDate:       z.string().optional(),
+  dueDate:           z.string().min(1, 'Due date is required'),
+  paidAmount:        z.number({ invalid_type_error: 'Paid amount is required' }).int().min(0, 'Paid amount cannot be negative'),
+  remainingAmount:   z.number({ invalid_type_error: 'Remaining amount is required' }).int().min(0, 'Remaining amount cannot be negative'),
+  remarks:           z.string().min(1, 'Remarks is required'),
+  paymentProof:      z.string().optional(),
+})
 
 export type CreatePaymentFormData = z.infer<typeof createPaymentSchema>
 

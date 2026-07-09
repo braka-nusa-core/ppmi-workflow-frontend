@@ -3,15 +3,8 @@ import type { Division } from './workflow'
 // ─── Voucher-specific enums ──────────────────────────────────────
 export type VoucherStatus =
   | 'DRAFT'
-  | 'PENDING_APPROVAL'
-  | 'APPROVED'
-  | 'PROCESSED'
-  | 'CANCELLED'
-
-export type VoucherApprovalStatus =
-  | 'WAITING'
-  | 'APPROVED'
-  | 'REJECTED'
+  | 'PENDING'
+  | 'CLOSED'
 
 export type VoucherPaymentType =
   | 'BANK_TRANSFER'
@@ -19,16 +12,6 @@ export type VoucherPaymentType =
   | 'RTGS'
   | 'SWIFT'
   | 'CASH'
-
-// ─── Approval record ─────────────────────────────────────────────
-export interface VoucherApproval {
-  id:          string
-  approverName:string
-  approverRole:string
-  status:      VoucherApprovalStatus
-  notes?:      string
-  timestamp?:  string
-}
 
 // ─── Attachment ──────────────────────────────────────────────────
 export interface VoucherAttachment {
@@ -76,7 +59,6 @@ export interface VoucherDocument {
   docNumber:      string
   division:       Division
   status:         VoucherStatus
-  approvalStatus: VoucherApprovalStatus
 
   // Linked documents
   invoiceId:      string
@@ -108,7 +90,6 @@ export interface VoucherDocument {
   processedBy?:    string
 
   // Approval
-  approval?:       VoucherApproval
   approvalPIC?:    string
   approvalNotes?:  string
   approvedBy?:     string
@@ -142,7 +123,6 @@ export interface VoucherListItem {
   currency:       'IDR' | 'USD'
   amount:         number
   status:         VoucherStatus
-  approvalStatus: VoucherApprovalStatus
   hasPayment:     boolean
   paymentNumber?: string
   createdAt:      string
@@ -151,6 +131,7 @@ export interface VoucherListItem {
 // ─── Create payload ──────────────────────────────────────────────
 export interface CreateVoucherPayload {
   invoiceId:       string
+  voucherNumber:   string   // user-entered; backend requires as non-empty string, no auto-generation
   division:        Division
   paymentType:     VoucherPaymentType
   currency:        'IDR' | 'USD'
@@ -174,7 +155,6 @@ export type UpdateVoucherPayload = Partial<CreateVoucherPayload> & {
 export interface VoucherFilters {
   search?:        string
   status?:        VoucherStatus | ''
-  approvalStatus?:VoucherApprovalStatus | ''
   division?:      Division | ''
   paymentType?:   VoucherPaymentType | ''
 }

@@ -5,9 +5,7 @@ import { useRouter }              from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchVoucherDetail,
-  approveVoucher,
-  rejectVoucher,
-  advanceToPayment,
+  updateVoucher,
   cancelVoucher,
 } from '@/lib/api/voucher'
 import { VoucherDetailHeader }    from './VoucherDetailHeader'
@@ -51,7 +49,6 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
 
   const approveModal = useModal()
   const rejectModal  = useModal()
-  const paymentModal = useModal()
   const cancelModal  = useModal()
 
   const [rejectReason, setRejectReason] = useState('')
@@ -69,8 +66,10 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
   }
 
   // ── Approve ───────────────────────────────────────────────────
+  // No dedicated /approve endpoint exists on the backend — use the
+  // generic PATCH /vouchers/:id, same pattern as QS's approveQS().
   const approveMutation = useMutation({
-    mutationFn: () => approveVoucher(id),
+    mutationFn: () => updateVoucher(id, { status: 'CLOSED' }),
     onSuccess: () => {
       invalidate()
       success('Voucher Approved', `${vch?.docNumber} has been approved.`)
@@ -82,8 +81,10 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
   })
 
   // ── Reject ────────────────────────────────────────────────────
+  // No dedicated /reject endpoint exists on the backend — return the
+  // voucher to DRAFT via the generic PATCH /vouchers/:id.
   const rejectMutation = useMutation({
-    mutationFn: () => rejectVoucher(id, rejectReason),
+    mutationFn: () => updateVoucher(id, { status: 'DRAFT' }),
     onSuccess: () => {
       invalidate()
       success('Voucher Rejected', `${vch?.docNumber} has been returned for revision.`)
@@ -92,24 +93,6 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
     },
     onError: () => {
       toastError('Rejection failed', 'Could not reject the voucher. Please try again.')
-    },
-  })
-
-  // ── Advance to Payment ────────────────────────────────────────
-  const paymentMutation = useMutation({
-    mutationFn: () => advanceToPayment(id),
-    onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
-      success('Payment Generated', 'Payment record created successfully.')
-      paymentModal.close()
-      if (res.data?.paymentId) {
-        router.push(`/dashboard/payment/${res.data.paymentId}`)
-      } else {
-        router.push('/dashboard/payment')
-      }
-    },
-    onError: () => {
-      toastError('Failed', 'Could not generate payment. Please try again.')
     },
   })
 
@@ -158,7 +141,7 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
         canCreate={canCreate}
         onApprove={() => approveModal.open()}
         onReject={()  => rejectModal.open()}
-        onPayment={() => paymentModal.open()}
+        onPayment={() => router.push(`/dashboard/payment/new?voucherId=${id}`)}
         onCancel={()  => cancelModal.open()}
         onDownload={() => { /* PDF download — handled separately */ }}
       />
@@ -184,7 +167,7 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
           onEdit={()     => router.push(`/dashboard/voucher/${vch.id}/edit`)}
           onApprove={() => approveModal.open()}
           onReject={()  => rejectModal.open()}
-          onPayment={() => paymentModal.open()}
+          onPayment={() => router.push(`/dashboard/payment/new?voucherId=${id}`)}
           onCancel={()  => cancelModal.open()}
           onDownload={() => { /* PDF download */ }}
         />
@@ -233,19 +216,6 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
           </Button>
         </ModalFooter>
       </BaseModal>
-
-      {/* Generate Payment */}
-      <ConfirmModal
-        open={paymentModal.isOpen}
-        onClose={paymentModal.close}
-        onConfirm={() => paymentMutation.mutate()}
-        title="Generate Payment"
-        description={`Generate a payment record from ${vch.docNumber}? This will advance the workflow to the Payment stage.`}
-        confirmLabel="Generate Payment"
-        cancelLabel="Cancel"
-        variant="primary"
-        loading={paymentMutation.isPending}
-      />
 
       {/* Cancel */}
       <ConfirmModal

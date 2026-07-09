@@ -74,8 +74,8 @@ export function QSCreateClient() {
   const handleSaveDraft = () => {
     const data = getValues()
     // Validate the minimum required fields for draft
-    if (!data.insuredName || !data.vesselName || !data.insuranceType || !data.premiumAmount) {
-      toastError('Required fields missing', 'Please fill in Insured, Vessel, Insurance Type, and Premium before saving.')
+    if (!data.insuredName || !data.vesselName || !data.insuranceType || !data.premiumAmount || !data.policyNumber || !data.member || !data.leader) {
+      toastError('Required fields missing', 'Please fill in Policy Number, Member, Leader, Insured, Vessel, Insurance Type, and Premium before saving.')
       return
     }
     createMutation.mutate({ data, status: 'DRAFT' })

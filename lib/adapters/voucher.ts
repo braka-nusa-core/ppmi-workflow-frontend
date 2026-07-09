@@ -10,14 +10,131 @@
  * Pattern mirrors lib/adapters/qs.ts.
  */
 
-import type { CreateVoucherPayload, UpdateVoucherPayload } from '@/types/voucher'
+import type {
+  CreateVoucherPayload,
+  UpdateVoucherPayload,
+  VoucherDocument,
+  VoucherListItem,
+  VoucherStatus,
+} from '@/types/voucher'
 import type {
   BackendCreateVoucherPayload,
   BackendUpdateVoucherPayload,
   BackendVoucherStatus,
+  BackendVoucherListItem,
+  BackendVoucherDetail,
 } from '@/types/backend/voucher'
 
-// ─── DateTime helper ──────────────────────────────────────────────
+// ─── toISO helper (response side) ──────────────────────────────────
+/** Prisma DateTime may arrive as a Date or an ISO string — normalize to string. */
+function toISO(value: string | Date | null | undefined): string {
+  if (!value) return ''
+  if (value instanceof Date) return value.toISOString()
+  return value
+}
+
+// ─── Backend VoucherStatus ↔ frontend VoucherStatus ────────────────
+// Identical value sets (both DRAFT/PENDING/CLOSED). Kept as an explicit
+// pass-through function, mirroring qs.ts's toFrontendStatus, so any future
+// divergence between the two enums is isolated to this one place.
+function toFrontendVoucherStatus(status: BackendVoucherStatus): VoucherStatus {
+  return status as VoucherStatus
+}
+
+// ════════════════════════════════════════════════════════════════
+// RESPONSE ADAPTERS  (backend → frontend)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Map a single BackendVoucherListItem → VoucherListItem (one table row).
+ *
+ * The backend's listVouchers()/getVoucher() include only `invoice` (id,
+ * invoice_number) and `bank` (id, name) — there is no `qs`, `payments`, or
+ * `division` relation on this response. Fields with no backend source are
+ * defaulted below rather than left to throw, consistent with how
+ * lib/adapters/qs.ts handles fields absent from its own backend response
+ * (e.g. `hasInvoice: false`).
+ */
+export function mapVoucherListItem(item: BackendVoucherListItem): VoucherListItem {
+  return {
+    id:             item.id,
+    docNumber:      item.id,                       // id IS the doc number (VCH-YYYYMMDD-NNN)
+    division:       'PI',                           // Not in backend response — no division relation on Voucher
+    invoiceNumber:  item.invoice?.invoice_number ?? '',
+    qsNumber:       '',                              // Not in backend response — no qs relation on Voucher
+    insuredName:    '',                              // Not in backend response — no qs/invoice insured data included
+    paymentType:    item.payment_type,
+    bankName:       item.bank?.name ?? '',
+    currency:       item.currency as 'IDR' | 'USD',
+    amount:         item.amount,
+    status:         toFrontendVoucherStatus(item.status),
+    hasPayment:     false,                           // Not in backend response — payments relation not included
+    paymentNumber:  undefined,
+    createdAt:      toISO(item.created_at),
+  }
+}
+
+/** Map BackendVoucherDetail → VoucherDocument (detail page). */
+export function mapVoucherDetail(item: BackendVoucherDetail): VoucherDocument {
+  return {
+    id:             item.id,
+    docNumber:      item.id,
+    division:       'PI',                           // Not in backend response
+    status:         toFrontendVoucherStatus(item.status),
+
+    // Linked documents
+    invoiceId:      item.invoice_id,
+    invoiceNumber:  item.invoice?.invoice_number ?? '',
+    qsId:           '',                              // Not in backend response — no qs relation on Voucher
+    qsNumber:       '',                              // Not in backend response
+    paymentId:      undefined,                       // Not in backend response — payments relation not included
+    paymentNumber:  undefined,
+
+    // Insured info (from invoice) — not available on this response
+    insuredName:    '',
+    vesselName:     undefined,
+
+    // Payment info
+    paymentType:    item.payment_type,
+    currency:       item.currency as 'IDR' | 'USD',
+    amount:         item.amount,
+
+    // Bank info — only bank.id/bank.name are selected on the backend;
+    // account number/name/branch/swift are not part of this response
+    bankName:       item.bank?.name ?? '',
+    bankBranch:     undefined,
+    accountNumber:  '',
+    accountName:    '',
+    swiftCode:      undefined,
+
+    // Processing — not in backend response
+    processingDate: undefined,
+    processedDate:  undefined,
+    processedBy:    undefined,
+
+    // Approval — not in backend response
+    approvalPIC:     undefined,
+    approvalNotes:   undefined,
+    approvedBy:      undefined,
+    approvedAt:      undefined,
+    rejectedBy:      undefined,
+    rejectedAt:      undefined,
+    rejectionReason: undefined,
+
+    // Notes & attachments
+    internalNotes:  item.remarks,
+    attachments:    [],
+
+    // Meta — createdBy/updatedBy not in backend response
+    createdBy:      '',
+    createdAt:      toISO(item.created_at),
+    updatedBy:      undefined,
+    updatedAt:      toISO(item.updated_at),
+    activity:       [],
+  }
+}
+
+// ─── DateTime helper (request side) ────────────────────────────────
 /**
  * Convert a date-input value ("YYYY-MM-DD") to a full ISO-8601 DateTime
  * string required by Prisma ("YYYY-MM-DDTHH:mm:ss.sssZ").
@@ -34,7 +151,7 @@ function dateInputToISO(dateStr: string | undefined | null): string | undefined 
  * Map frontend CreateVoucherPayload → BackendCreateVoucherPayload.
  *
  * @param payload   Frontend form data (camelCase)
- * @param status    'DRAFT' for Save Draft, 'SUBMITTED' for Submit — required by backend
+ * @param status    'DRAFT' for Save Draft, 'PENDING' for Submit — required by backend
  */
 export function mapCreateVoucherPayload(
   payload: CreateVoucherPayload,
@@ -43,7 +160,7 @@ export function mapCreateVoucherPayload(
   return {
     // Required fields confirmed from backend ZodError
     invoice_id:     payload.invoiceId,
-    voucher_number: '',                          // backend auto-generates; send empty string
+    voucher_number: payload.voucherNumber,       // user-entered; backend does not auto-generate this
     voucher_date:   new Date().toISOString(),    // today as ISO DateTime
     payment_type:   payload.paymentType,
     status,

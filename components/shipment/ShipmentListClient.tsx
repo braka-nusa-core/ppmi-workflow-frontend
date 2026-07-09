@@ -1,83 +1,84 @@
 'use client'
 
-import { useMemo }                from 'react'
-import { useRouter }              from 'next/navigation'
-import { Download }               from 'lucide-react'
-import { DataTable }              from '@/components/table/DataTable'
-import { TableFilters }           from '@/components/table/TableFilters'
-import type { FilterDef }         from '@/components/table/TableFilters'
-import { PageHeader }             from '@/components/layout/PageHeader'
-import { Button }                 from '@/components/ui/Button'
-import { ConfirmModal }           from '@/components/modal/BaseModal'
-import { useDataTable }           from '@/hooks/useDataTable'
-import { useModal }               from '@/hooks/useModal'
-import { useRole }                from '@/hooks/useRole'
-import { buildShipmentColumns }   from './ShipmentTableColumns'
-import type { ShipmentListItem }  from '@/types/shipment'
+import { useMemo }             from 'react'
+import { useRouter }           from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Plus }                 from 'lucide-react'
+import { DataTable }            from '@/components/table/DataTable'
+import { TableFilters }         from '@/components/table/TableFilters'
+import { PageHeader }           from '@/components/layout/PageHeader'
+import { Button }               from '@/components/ui/Button'
+import { ConfirmModal }         from '@/components/modal/BaseModal'
+import { ErrorState }           from '@/components/feedback/ErrorState'
+import { useDataTable }         from '@/hooks/useDataTable'
+import { useModal }             from '@/hooks/useModal'
+import { useRole }              from '@/hooks/useRole'
+import { useToast }             from '@/context/ToastContext'
+import { buildShipmentColumns } from './ShipmentTableColumns'
+import { fetchShipmentList, deleteShipment } from '@/lib/api/shipment'
+import type { ShipmentListItem } from '@/types/shipment'
 
-const SHIPMENT_FILTERS: FilterDef[] = [
-  {
-    key: 'status', label: 'Status', type: 'select',
-    options: [
-      { value: 'DRAFT',               label: 'Draft'               },
-      { value: 'IN_PROGRESS',         label: 'In Progress'         },
-      { value: 'DOCUMENTS_RECEIVED',  label: 'Docs Received'       },
-      { value: 'DOCUMENTS_FORWARDED', label: 'Docs Forwarded'      },
-      { value: 'COMPLETED',           label: 'Completed'           },
-      { value: 'CANCELLED',           label: 'Cancelled'           },
-    ],
-  },
-  {
-    key: 'division', label: 'Division', type: 'select',
-    options: [
-      { value: 'PI', label: 'P&I' },
-      { value: 'HM', label: 'H&M' },
-    ],
-  },
-  {
-    key: 'documentsReceived', label: 'Docs Rcv.', type: 'select',
-    options: [
-      { value: 'true',  label: 'Received'      },
-      { value: 'false', label: 'Not Received'  },
-    ],
-  },
-  {
-    key: 'documentsForwarded', label: 'Docs Fwd.', type: 'select',
-    options: [
-      { value: 'true',  label: 'Forwarded'     },
-      { value: 'false', label: 'Not Forwarded' },
-    ],
-  },
-]
+export function ShipmentListClient() {
+  const router      = useRouter()
+  const queryClient  = useQueryClient()
+  const { canCreate, canEdit, canDelete } = useRole()
+  const { success, error: toastError }    = useToast()
+  const table       = useDataTable({ defaultPageSize: 25 })
+  const deleteModal  = useModal<ShipmentListItem>()
 
-interface ShipmentListClientProps {
-  initialData:  ShipmentListItem[]
-  totalRecords: number
-}
+  // ── Typed query params ────────────────────────────────────────
+  const shipmentQueryParams = {
+    page:     table.pagination.page,
+    pageSize: table.pagination.pageSize,
+    search:   table.debouncedSearch || undefined,
+    sortBy:   table.sort?.key,
+    sortDir:  table.sort?.direction,
+  }
 
-export function ShipmentListClient({ initialData, totalRecords }: ShipmentListClientProps) {
-  const router = useRouter()
-  const { canEdit } = useRole()
-  const table        = useDataTable({ defaultPageSize: 25 })
-  const completeModal = useModal<ShipmentListItem>()
+  const { data: result, isLoading, isError, refetch } = useQuery({
+    queryKey: ['shipment-list', shipmentQueryParams],
+    queryFn:  () => fetchShipmentList(shipmentQueryParams),
+  })
+
+  const data  = result?.data ?? []
+  const total = result?.pagination?.total ?? 0
+
+  // ── Delete ─────────────────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteShipment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shipment-list'] })
+      success('Shipment Deleted', `${deleteModal.data?.docNumber} has been deleted.`)
+      deleteModal.close()
+    },
+    onError: () => {
+      toastError('Delete failed', 'Could not delete the shipment. Please try again.')
+    },
+  })
 
   const columns = useMemo(() => buildShipmentColumns({
-    onView:     (row) => router.push(`/dashboard/shipment/${row.id}`),
-    onEdit:     (row) => router.push(`/dashboard/shipment/${row.id}/edit`),
-    onComplete: (row) => completeModal.open(row),
+    onView:   (row) => router.push(`/dashboard/shipment/${row.id}`),
+    onEdit:   (row) => router.push(`/dashboard/shipment/${row.id}/edit`),
+    onDelete: (row) => deleteModal.open(row),
     canEdit,
-  }), [canEdit, router, completeModal])
+    canDelete,
+  }), [canEdit, canDelete, router, deleteModal])
 
   return (
     <>
       <PageHeader
         title="Shipments"
-        description="Document tracking for the final workflow stage across all divisions"
+        description="Shipment records linked to invoices across P&I and H&M divisions"
         breadcrumbs={[{ label: 'Shipment' }]}
         actions={
-          <Button variant="secondary" size="sm" icon={<Download size={13} />}>
-            Export
-          </Button>
+          canCreate && (
+            <Button
+              variant="primary" size="sm" icon={<Plus size={13} />}
+              onClick={() => router.push('/dashboard/shipment/new')}
+            >
+              New Shipment
+            </Button>
+          )
         }
       />
 
@@ -85,36 +86,43 @@ export function ShipmentListClient({ initialData, totalRecords }: ShipmentListCl
         <TableFilters
           searchValue={table.search}
           onSearchChange={table.setSearch}
-          searchPlaceholder="Search shipment no., B/L number, insured…"
-          filters={SHIPMENT_FILTERS}
-          activeFilters={table.activeFilters}
-          onFilterChange={table.onFilterChange}
-          onClearFilters={table.onClearFilters}
+          searchPlaceholder="Search courier, tracking number…"
         />
-        <DataTable<ShipmentListItem>
-          columns={columns}
-          data={initialData}
-          rowKey={(row) => row.id}
-          sort={table.sort}
-          onSortChange={table.onSortChange}
-          pagination={table.fullPagination(totalRecords)}
-          onPageChange={table.onPageChange}
-          onPageSizeChange={table.onPageSizeChange}
-          onRowDoubleClick={(row) => router.push(`/dashboard/shipment/${row.id}`)}
-          emptyMessage="No shipments found"
-          emptyDescription="Shipment records appear here once payments are completed"
-        />
+        {isError ? (
+          <ErrorState
+            message="Failed to load shipments"
+            description="An error occurred while loading data from the server. Please try again."
+            onRetry={() => refetch()}
+          />
+        ) : (
+          <DataTable<ShipmentListItem>
+            columns={columns}
+            data={data}
+            rowKey={(row) => row.id}
+            loading={isLoading}
+            sort={table.sort}
+            onSortChange={table.onSortChange}
+            pagination={table.fullPagination(total)}
+            onPageChange={table.onPageChange}
+            onPageSizeChange={table.onPageSizeChange}
+            onRowDoubleClick={(row) => router.push(`/dashboard/shipment/${row.id}`)}
+            emptyMessage="No shipments found"
+            emptyDescription="Try adjusting your search criteria"
+          />
+        )}
       </div>
 
+      {/* Delete */}
       <ConfirmModal
-        open={completeModal.isOpen}
-        onClose={completeModal.close}
-        onConfirm={() => completeModal.close()}
-        title="Complete Shipment"
-        description={`Mark ${completeModal.data?.docNumber} as completed? This finalises the entire workflow for this policy.`}
-        confirmLabel="Complete Shipment"
+        open={deleteModal.isOpen}
+        onClose={deleteModal.close}
+        onConfirm={() => deleteModal.data && deleteMutation.mutate(deleteModal.data.id)}
+        title="Delete Shipment"
+        description={`Delete ${deleteModal.data?.docNumber}? This action cannot be undone.`}
+        confirmLabel="Delete"
         cancelLabel="Cancel"
-        variant="primary"
+        variant="danger"
+        loading={deleteMutation.isPending}
       />
     </>
   )

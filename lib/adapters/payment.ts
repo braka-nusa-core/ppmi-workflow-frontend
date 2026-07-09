@@ -38,6 +38,21 @@ function isOverdue(dueDate: string | Date): boolean {
 }
 
 /**
+ * Convert a date-input value ("YYYY-MM-DD") to a full ISO-8601 DateTime
+ * string required by Prisma ("YYYY-MM-DDTHH:mm:ss.sssZ").
+ *
+ * Same convention as qs.ts/voucher.ts's dateInputToISO and invoice.ts's
+ * toOutboundDate: HTML <input type="date"> always returns "YYYY-MM-DD"
+ * with no time part, which Prisma rejects as an invalid DateTime.
+ * Returns undefined if the value is empty so optional fields are omitted cleanly.
+ */
+function dateInputToISO(dateStr: string | undefined | null): string | undefined {
+  if (!dateStr) return undefined
+  if (dateStr.includes('T')) return dateStr   // already a full DateTime — pass through
+  return `${dateStr}T00:00:00.000Z`
+}
+
+/**
  * Derive frontend PaymentStatus from backend status + due date.
  * OVERDUE is a frontend-only derived state for UNPAID/INSTALLMENT payments
  * whose due date has passed.
@@ -70,6 +85,7 @@ export function mapPaymentListItem(item: BackendPaymentItem): PaymentListItem {
     docNumber:          item.id,
     division:           'PI',                          // not in Payment model — unknown; stub
     voucherNumber:      item.voucher?.voucher_number ?? item.voucher_id,
+    invoiceId:          item.voucher?.invoice_id ?? '',  // now available via voucher.invoice_id
     invoiceNumber:      '',                            // not in Payment model — derive via Voucher integration
     insuredName:        item.remarks || '—',           // remarks is the closest text field available
     currency:           'IDR',                         // not in Payment model — default; stub
@@ -98,7 +114,7 @@ export function mapPaymentDetail(item: BackendPaymentItem): PaymentDocument {
 
     voucherId:           item.voucher_id,
     voucherNumber:       item.voucher?.voucher_number ?? item.voucher_id,
-    invoiceId:           '',                           // not in Payment model — stub
+    invoiceId:           item.voucher?.invoice_id ?? '',  // now available via voucher.invoice_id
     invoiceNumber:       '',                           // not in Payment model — stub
     qsId:                '',                           // not in Payment model — stub
     qsNumber:            '',                           // not in Payment model — stub
@@ -146,16 +162,18 @@ export function mapCreatePaymentPayload(payload: {
   remainingAmount:   number
   paymentStatus:     BackendPaymentStatus
   remarks:           string
+  paymentProof?:     string
 }): BackendCreatePaymentPayload {
   return {
     voucher_id:         payload.voucherId,
     installment_number: payload.installmentNumber,
-    payment_date:       payload.paymentDate ?? null,
-    due_date:           payload.dueDate,
+    payment_date:       dateInputToISO(payload.paymentDate) ?? null,
+    due_date:           dateInputToISO(payload.dueDate) ?? payload.dueDate,
     paid_amount:        Math.round(payload.paidAmount),
     remaining_amount:   Math.round(payload.remainingAmount),
     payment_status:     payload.paymentStatus,
     remarks:            payload.remarks || '-',
+    ...(payload.paymentProof ? { payment_proof: payload.paymentProof } : {}),
   }
 }
 
@@ -174,8 +192,8 @@ export function mapUpdatePaymentPayload(payload: {
   if (payload.paidAmount != null)      result.paid_amount       = Math.round(payload.paidAmount)
   if (payload.remainingAmount != null) result.remaining_amount  = Math.round(payload.remainingAmount)
   if (payload.paymentStatus)           result.payment_status    = toBackendStatus(payload.paymentStatus)
-  if (payload.paymentDate !== undefined) result.payment_date    = payload.paymentDate
-  if (payload.dueDate)                 result.due_date          = payload.dueDate
+  if (payload.paymentDate !== undefined) result.payment_date    = dateInputToISO(payload.paymentDate) ?? null
+  if (payload.dueDate)                 result.due_date          = dateInputToISO(payload.dueDate)
   if (payload.remarks)                 result.remarks           = payload.remarks
   return result
 }

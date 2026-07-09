@@ -7,7 +7,7 @@ import { zodResolver }        from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, Send, X }     from 'lucide-react'
 import { createVoucherSchema, type CreateVoucherFormData } from '@/lib/validations/voucher'
-import { fetchVoucherDetail, updateVoucher, submitVoucherForApproval } from '@/lib/api/voucher'
+import { fetchVoucherDetail, updateVoucher } from '@/lib/api/voucher'
 import { Button }             from '@/components/ui/Button'
 import { PageHeader }         from '@/components/layout/PageHeader'
 import { QSAttachmentUpload } from '@/components/qs/QSAttachmentUpload'
@@ -98,12 +98,13 @@ export function VoucherEditClient({ id }: VoucherEditClientProps) {
     },
   })
 
-  // ── Save & Submit mutation (update then submit) ───────────────
+  // ── Save & Submit mutation ──────────────────────────────────────
+  // No dedicated /submit endpoint exists on the backend — update the
+  // voucher and set status to 'PENDING' in the same PATCH /vouchers/:id
+  // call, same pattern as QS's submitQS().
   const submitMutation = useMutation({
-    mutationFn: async (data: CreateVoucherFormData) => {
-      await updateVoucher(id, data)
-      return submitVoucherForApproval(id)
-    },
+    mutationFn: (data: CreateVoucherFormData) =>
+      updateVoucher(id, { ...data, status: 'PENDING' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
       queryClient.invalidateQueries({ queryKey: ['voucher-detail', id] })
@@ -141,8 +142,8 @@ export function VoucherEditClient({ id }: VoucherEditClientProps) {
     )
   }
 
-  // ── Edit guard — only DRAFT or PENDING_APPROVAL ───────────────
-  if (vch.status !== 'DRAFT' && vch.status !== 'PENDING_APPROVAL') {
+  // ── Edit guard — only DRAFT or PENDING ─────────────────────────
+  if (vch.status !== 'DRAFT' && vch.status !== 'PENDING') {
     return (
       <div className="page-container flex items-center justify-center min-h-[400px]">
         <ErrorState

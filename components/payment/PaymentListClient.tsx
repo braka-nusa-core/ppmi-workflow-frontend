@@ -170,7 +170,7 @@ export function PaymentListClient() {
         )}
       </div>
 
-      {/* Record payment — wires to PATCH /payments/:id via RecordPaymentModal */}
+       {/* Record payment — wires to PATCH /payments/:id via RecordPaymentModal */}
       <RecordPaymentModal
         open={recordModal.isOpen}
         onClose={recordModal.close}
@@ -180,10 +180,10 @@ export function PaymentListClient() {
           await run(
             async () => {
               await updatePayment(pid, {
-                paid_amount:      paidAmount,
-                remaining_amount: remainingAmount,
-                payment_date:     paymentDate,
-                payment_status:   remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT',
+                paidAmount:      paidAmount,
+                remainingAmount: remainingAmount,
+                paymentDate:     paymentDate,
+                paymentStatus:   remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT',
                 ...(remarks ? { remarks } : {}),
               })
             },
@@ -231,7 +231,7 @@ export function PaymentListClient() {
         onConfirm={() => {
           shipmentModal.close()
           if (shipmentModal.data) {
-            router.push(`/dashboard/shipment/new?paymentId=${shipmentModal.data.id}`)
+            router.push(`/dashboard/shipment/new?paymentId=${shipmentModal.data.id}&invoiceId=${shipmentModal.data.invoiceId}`)
           }
         }}
         title="Generate Shipment"

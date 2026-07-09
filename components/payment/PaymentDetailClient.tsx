@@ -135,10 +135,10 @@ export function PaymentDetailClient({ id }: Props) {
           setProcessing(true)
           try {
             await updatePayment(payId, {
-              paid_amount:      paidAmount,
-              remaining_amount: remainingAmount,
-              payment_date:     paymentDate,
-              payment_status:   remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT',
+              paidAmount:      paidAmount,
+              remainingAmount: remainingAmount,
+              paymentDate:     paymentDate,
+              paymentStatus:   remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT',
               ...(remarks ? { remarks } : {}),
             })
             recordModal.close()
@@ -223,7 +223,7 @@ export function PaymentDetailClient({ id }: Props) {
         open={shipmentModal.isOpen}
         onClose={shipmentModal.close}
         onConfirm={run(async () => {
-          router.push(`/dashboard/shipment/new?paymentId=${pay.id}`)
+          router.push(`/dashboard/shipment/new?paymentId=${pay.id}&invoiceId=${pay.invoiceId}`)
         }, shipmentModal.close)}
         title="Generate Shipment"
         description={`Generate a shipment document from ${pay.docNumber}? This advances the workflow to the final Shipment stage.`}

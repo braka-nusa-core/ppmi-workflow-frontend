@@ -8,16 +8,12 @@
  */
 
 // ─── Backend enums ────────────────────────────────────────────────
+// Confirmed from vouchers.validation.ts createVoucherSchema/updateVoucherSchema:
+// status: z.enum(['DRAFT', 'PENDING', 'CLOSED'])
 export type BackendVoucherStatus =
   | 'DRAFT'
-  | 'PENDING_APPROVAL'
-  | 'APPROVED'
-  | 'PROCESSED'
-  | 'CANCELLED'
-  | 'PENDING_APPROVAL'
-  | 'APPROVED'
-  | 'PROCESSED'
-  | 'CANCELLED'
+  | 'PENDING'
+  | 'CLOSED'
 
 export type BackendVoucherPaymentType =
   | 'BANK_TRANSFER'
@@ -61,3 +57,58 @@ export interface BackendCreateVoucherPayload {
 
 /** Backend PATCH /vouchers/:id — all fields optional */
 export type BackendUpdateVoucherPayload = Partial<BackendCreateVoucherPayload>
+
+// ─── List / detail item shape ─────────────────────────────────────
+/**
+ * Shape returned by listVouchers() and getVoucher().
+ * Confirmed from src/vouchers/vouchers.service.ts — `include` returns all
+ * scalar columns of the Voucher row unmodified, plus two selected relations.
+ * No `select` is applied at the top level, so every Voucher scalar column
+ * is present. There is no `qs`, `payments`, or `division` relation included
+ * at all — those do not exist on this response.
+ */
+export interface BackendVoucherListItem {
+  id:             string          // app-generated doc number, e.g. "VCH-20260705-001"
+  invoice_id:     string          // UUID
+  voucher_number: string
+  voucher_date:   string | Date
+  payment_type:   BackendVoucherPaymentType
+  bank_id:        string | null
+  amount:         number          // integer
+  currency:       string
+  status:         BackendVoucherStatus
+  remarks:        string
+  is_deleted:     boolean
+  created_at:     string | Date
+  updated_at:     string | Date
+  deleted_at:     string | Date | null
+  invoice: {
+    id:             string
+    invoice_number: string
+  } | null
+  bank: {
+    id:   string
+    name: string
+  } | null
+}
+
+export type BackendVoucherDetail = BackendVoucherListItem
+
+// ─── List response envelope ───────────────────────────────────────
+export interface BackendVoucherListData {
+  items:        BackendVoucherListItem[]
+  total_pages:  number
+  current_page: number
+}
+
+export interface BackendVoucherListEnvelope {
+  success:     boolean
+  status_code: number
+  data:        BackendVoucherListData
+}
+
+export interface BackendVoucherDetailEnvelope {
+  success:     boolean
+  status_code: number
+  data:        BackendVoucherDetail
+}

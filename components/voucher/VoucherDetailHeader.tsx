@@ -4,7 +4,7 @@ import { ArrowLeft, Pencil, CreditCard, CheckCircle, XCircle, Download } from 'l
 import { useRouter } from 'next/navigation'
 import { cn }        from '@/lib/utils'
 import { Button }    from '@/components/ui/Button'
-import { VoucherStatusBadge, ApprovalStatusBadge } from './VoucherStatusBadge'
+import { VoucherStatusBadge } from './VoucherStatusBadge'
 import { DivisionBadge }   from '@/components/ui/Badge'
 import { LinkedWorkflowNavigator } from '@/components/workflow/LinkedWorkflowNavigator'
 import type { VoucherDocument }    from '@/types/voucher'
@@ -34,17 +34,17 @@ export function VoucherDetailHeader({
 }: VoucherDetailHeaderProps) {
   const router = useRouter()
 
-  const showApprove  = canVerify && vch.approvalStatus === 'WAITING' && vch.status === 'PENDING_APPROVAL'
-  const showReject   = canVerify && vch.approvalStatus === 'WAITING' && vch.status === 'PENDING_APPROVAL'
-  const showPayment  = canCreate && vch.status === 'APPROVED'        && !vch.paymentId
-  const showEdit     = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING_APPROVAL')
-  const showCancel   = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING_APPROVAL')
+  const showApprove  = canVerify && vch.status === 'PENDING'
+  const showReject   = canVerify && vch.status === 'PENDING'
+  const showPayment  = canCreate && vch.status === 'CLOSED' && !vch.paymentId
+  const showEdit     = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING')
+  const showCancel   = canEdit   && (vch.status === 'DRAFT' || vch.status === 'PENDING')
 
   // Build linked workflow nodes
   const workflowLinks = [
     { stage: 'QS'      as const, docNumber: vch.qsNumber,      href: `/dashboard/qs/${vch.qsId}`,           isActive: false, isDone: true },
     { stage: 'INVOICE' as const, docNumber: vch.invoiceNumber,  href: `/dashboard/invoice/${vch.invoiceId}`,  isActive: false, isDone: true },
-    { stage: 'VOUCHER' as const, docNumber: vch.docNumber,      href: `/dashboard/voucher/${vch.id}`,         isActive: true,  isDone: vch.status === 'PROCESSED' },
+    { stage: 'VOUCHER' as const, docNumber: vch.docNumber,      href: `/dashboard/voucher/${vch.id}`,         isActive: true,  isDone: vch.status === 'CLOSED' },
     ...(vch.paymentId ? [{ stage: 'PAYMENT' as const, docNumber: vch.paymentNumber!, href: `/dashboard/payment/${vch.paymentId}`, isActive: false, isDone: true }] : []),
   ]
 
@@ -70,9 +70,8 @@ export function VoucherDetailHeader({
             <h1 className="text-[17px] font-semibold text-[#18273a] tracking-tight font-mono">
               {vch.docNumber}
             </h1>
-            <VoucherStatusBadge  status={vch.status} />
-            <ApprovalStatusBadge status={vch.approvalStatus} />
-            <DivisionBadge       division={vch.division} />
+            <VoucherStatusBadge status={vch.status} />
+            <DivisionBadge      division={vch.division} />
           </div>
         </div>
 

@@ -78,6 +78,33 @@ export function PolicySection({ form }: SectionProps) {
         />
       </FormField>
 
+      {/* Policy Number */}
+      <FormField label="Policy Number" required error={errors.policyNumber?.message}>
+        <Input
+          placeholder="e.g. POL-2026-00123"
+          error={!!errors.policyNumber}
+          {...register('policyNumber')}
+        />
+      </FormField>
+
+      {/* Member */}
+      <FormField label="Member" required error={errors.member?.message}>
+        <Input
+          placeholder="e.g. PT Arpeni Pratama Ocean Line"
+          error={!!errors.member}
+          {...register('member')}
+        />
+      </FormField>
+
+      {/* Leader */}
+      <FormField label="Leader" required error={errors.leader?.message}>
+        <Input
+          placeholder="e.g. Leading correspondent name"
+          error={!!errors.leader}
+          {...register('leader')}
+        />
+      </FormField>
+
       {/* Broker */}
       <FormField
         label="Broker / Agent"

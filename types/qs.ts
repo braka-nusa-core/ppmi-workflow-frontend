@@ -155,12 +155,10 @@ export interface CreateQSPayload {
   expiryDate:      string
   internalNotes?:  string
 
-  // ADDED — required by backend createQsSchema; not previously in form payload.
-  // QS create/edit forms must collect these before this phase's API can be
-  // used end-to-end (handled in the QS List/Detail/Form integration phase).
-  member?:        string
-  leader?:        string
-  policyNumber?:  string
+  // Required by backend createQsSchema; collected in the QS Policy form section.
+  member:         string
+  leader:         string
+  policyNumber:   string
   status?:        QSStatus
 }
 

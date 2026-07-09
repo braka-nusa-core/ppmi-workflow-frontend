@@ -7,6 +7,9 @@ export const createQSSchema = z.object({
   effectiveDate: z.string().min(1, 'Effective date is required'),
   expiryDate:    z.string().min(1, 'Expiry date is required'),
   broker:        z.string().optional(),
+  policyNumber:  z.string().min(1, 'Policy number is required'),
+  member:        z.string().min(1, 'Member is required'),
+  leader:        z.string().min(1, 'Leader is required'),
 
   // Insured
   insuredName:    z.string().min(1, 'Insured name is required'),

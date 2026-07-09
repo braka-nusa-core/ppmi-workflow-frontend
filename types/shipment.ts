@@ -1,138 +1,84 @@
+/**
+ * Frontend Shipment types.
+ *
+ * IMPORTANT: The backend DocumentShipment model has only 5 writable
+ * scalar fields (invoice_id, payment_id, courier, tracking_number,
+ * shipping_date) plus an optional shipping_proof_id. There is NO status
+ * column, NO document-tracking fields, and NO shipping-detail fields
+ * (port of loading/discharge, BL number, container/voyage number) on the
+ * backend — earlier versions of this file modeled a status-driven
+ * workflow (DRAFT/IN_PROGRESS/DOCUMENTS_RECEIVED/.../COMPLETED/CANCELLED)
+ * and shipping-detail fields that do not exist anywhere in the backend.
+ * Those have been removed here to match the real contract. If a status-like
+ * workflow is needed later, it must be decided and modeled explicitly —
+ * not assumed — the same way Voucher's fictional `approvalStatus` was
+ * removed rather than patched around.
+ */
+
 import type { Division } from './workflow'
-
-// ─── Shipment-specific status ────────────────────────────────────
-export type ShipmentStatus =
-  | 'DRAFT'
-  | 'IN_PROGRESS'
-  | 'DOCUMENTS_RECEIVED'
-  | 'DOCUMENTS_FORWARDED'
-  | 'COMPLETED'
-  | 'CANCELLED'
-
-// ─── Activity ────────────────────────────────────────────────────
-export type ShipmentActivityType =
-  | 'created'
-  | 'updated'
-  | 'documents_received'
-  | 'documents_forwarded'
-  | 'completed'
-  | 'cancelled'
-  | 'note_added'
-
-export interface ShipmentActivity {
-  id:          string
-  type:        ShipmentActivityType
-  description: string
-  actor:       string
-  timestamp:   string
-  meta?: {
-    fromStatus?: ShipmentStatus
-    toStatus?:   ShipmentStatus
-    notes?:      string
-  }
-}
 
 // ─── Full Shipment Document ──────────────────────────────────────
 export interface ShipmentDocument {
-  id:                       string
-  docNumber:                string
-  division:                 Division
-  status:                   ShipmentStatus
+  id:                     string   // uuid(), also serves as the doc identifier
+  docNumber:              string   // = id (no separate human-readable sequence like QS/Invoice/Voucher/Payment)
 
-  // Linked chain
-  paymentId:                string
-  paymentNumber:            string
-  voucherId:                string
-  voucherNumber:            string
-  invoiceId:                string
-  invoiceNumber:            string
-  qsId:                     string
-  qsNumber:                 string
+  // Linked documents
+  invoiceId:              string
+  invoiceNumber:          string
+  paymentId?:             string   // optional — not always linked
 
-  // Insured / vessel
-  insuredName:              string
-  vesselName?:              string
-  vesselFlag?:              string
+  // Shipment details (the only real fields on the backend)
+  courier:                string
+  trackingNumber:         string
+  shippingDate:           string
 
-  // Shipment details
-  shipmentDate?:            string
-  portOfLoading?:           string
-  portOfDischarge?:         string
-  blNumber?:                string   // Bill of Lading
-  containerNumber?:         string
-  voyageNumber?:            string
+  // Shipping proof attachment (optional)
+  shippingProofId?:       string
+  shippingProofFileName?: string
+  shippingProofFileUrl?:  string
 
-  // Document tracking
-  documentsReceived:        boolean
-  documentsReceivedDate?:   string
-  documentsReceivedBy?:     string
-  documentsForwarded:       boolean
-  documentsForwardedDate?:  string
-  documentsForwardedTo?:    string
-  documentsForwardedBy?:    string
+  // Not in backend response — stubbed for display consistency with
+  // other modules until a real division/insured lookup path exists.
+  division?:              Division
 
-  // Coverage summary (from QS)
-  insuranceType?:           string
-  currency?:                'IDR' | 'USD'
-  premiumAmount?:           number
-
-  // Notes
-  internalNotes?:           string
-
-  // Meta
-  createdBy:                string
-  createdAt:                string
-  updatedBy?:               string
-  updatedAt:                string
-  activity?:                ShipmentActivity[]
+  createdAt:              string
+  updatedAt:              string
 }
 
 // ─── List item (table row) ───────────────────────────────────────
 export interface ShipmentListItem {
-  id:                   string
-  docNumber:            string
-  division:             Division
-  paymentNumber:        string
-  invoiceNumber:        string
-  insuredName:          string
-  vesselName?:          string
-  status:               ShipmentStatus
-  shipmentDate?:        string
-  blNumber?:            string
-  documentsReceived:    boolean
-  documentsForwarded:   boolean
-  createdAt:            string
+  id:              string
+  docNumber:       string
+  invoiceId:       string
+  invoiceNumber:   string
+  paymentId?:      string
+  courier:         string
+  trackingNumber:  string
+  shippingDate:    string
+  createdAt:       string
 }
 
 // ─── Create payload ──────────────────────────────────────────────
 export interface CreateShipmentPayload {
-  paymentId:             string
-  division:              Division
-  shipmentDate?:         string
-  portOfLoading?:        string
-  portOfDischarge?:      string
-  blNumber?:             string
-  containerNumber?:      string
-  voyageNumber?:         string
-  internalNotes?:        string
+  invoiceId:         string
+  courier:           string
+  trackingNumber:    string
+  shippingDate:      string
+  paymentId?:        string
+  shippingProofId?:  string
 }
 
-export type UpdateShipmentPayload = Partial<CreateShipmentPayload> & {
-  status?:               ShipmentStatus
-  documentsReceived?:    boolean
-  documentsReceivedDate?:string
-  documentsReceivedBy?:  string
-  documentsForwarded?:   boolean
-  documentsForwardedDate?:string
-  documentsForwardedTo?: string
-  documentsForwardedBy?: string
-}
+export type UpdateShipmentPayload = Partial<CreateShipmentPayload>
 
 // ─── Filters ─────────────────────────────────────────────────────
+/**
+ * Only invoiceId/paymentId/search are supported by the backend's
+ * listShipments(). division/status/documentsReceived/documentsForwarded
+ * filters from the previous version have no backend support and were
+ * removed.
+ */
 export interface ShipmentFilters {
-  search?:            string
-  status?:            ShipmentStatus | ''
-  division?:          Division | ''
-  documentsReceived?: 'true' | 'false' | ''
-  documentsForwarded?:'true' | 'false' | ''
+  search?:    string
+  invoiceId?: string
+  paymentId?: string
 }

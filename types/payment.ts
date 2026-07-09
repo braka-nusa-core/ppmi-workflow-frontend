@@ -132,6 +132,7 @@ export interface PaymentListItem {
   docNumber:          string
   division:           Division
   voucherNumber:      string
+  invoiceId:          string
   invoiceNumber:      string
   insuredName:        string
   vesselName?:        string
@@ -171,14 +172,14 @@ export interface RecordInstallmentPayload {
 
 // ─── Create payment payload ──────────────────────────────────────
 export interface CreatePaymentPayload {
-  voucherId:        string
-  division:         Division
-  currency:         'IDR' | 'USD'
-  totalAmount:      number
-  dueDate:          string
-  isInstallment:    boolean
-  installmentCount?:number
-  internalNotes?:   string
+  voucherId:         string
+  installmentNumber: number
+  paymentDate?:      string
+  dueDate:           string
+  paidAmount:        number
+  remainingAmount:   number
+  remarks:           string
+  paymentProof?:     string
 }
 
 // ─── Filters ─────────────────────────────────────────────────────

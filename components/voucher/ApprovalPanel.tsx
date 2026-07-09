@@ -1,12 +1,13 @@
-import { CheckCircle, XCircle, Clock, User, AlertTriangle } from 'lucide-react'
+import { CheckCircle, Clock, User, AlertTriangle } from 'lucide-react'
 import { cn }              from '@/lib/utils'
 import { formatDateTime }  from '@/lib/format'
 import type { VoucherDocument } from '@/types/voucher'
+import { VoucherStatusBadge } from './VoucherStatusBadge'
 
 // ─── Approval step config ────────────────────────────────────────
 interface ApprovalStep {
   label:     string
-  status:    'done' | 'active' | 'waiting' | 'rejected'
+  status:    'done' | 'active' | 'waiting'
   actor?:    string
   timestamp?:string
   notes?:    string
@@ -22,17 +23,15 @@ function resolveSteps(voucher: VoucherDocument): ApprovalStep[] {
     },
     {
       label:     'Pending Finance Approval',
-      status:
-        voucher.approvalStatus === 'APPROVED' ? 'done' :
-        voucher.approvalStatus === 'REJECTED' ? 'rejected' :
-        voucher.status === 'PENDING_APPROVAL' ? 'active' : 'waiting',
-      actor:     voucher.approvalStatus !== 'WAITING' ? (voucher.approvedBy ?? voucher.rejectedBy) : voucher.approvalPIC,
+      status:    voucher.status === 'CLOSED'  ? 'done' :
+                 voucher.status === 'PENDING' ? 'active' : 'waiting',
+      actor:     voucher.approvedBy ?? voucher.rejectedBy ?? voucher.approvalPIC,
       timestamp: voucher.approvedAt ?? voucher.rejectedAt,
       notes:     voucher.rejectionReason,
     },
     {
       label:  'Ready for Processing',
-      status: voucher.status === 'APPROVED' || voucher.status === 'PROCESSED' ? 'done' : 'waiting',
+      status: voucher.status === 'CLOSED' ? 'done' : 'waiting',
       actor:  voucher.processedBy,
       timestamp: voucher.processedDate,
     },
@@ -48,7 +47,6 @@ const STEP_ICON = {
   done:     { icon: CheckCircle, bg: 'bg-[#eaf6f0]', color: 'text-[#1a5c38]', line: 'bg-[#1a5c38]' },
   active:   { icon: Clock,       bg: 'bg-[#e8f3fb]', color: 'text-[#123d6b]', line: 'bg-[#d5e3ef]' },
   waiting:  { icon: Clock,       bg: 'bg-[#f0f4f7]', color: 'text-[#7a8fa3]', line: 'bg-[#edf1f5]' },
-  rejected: { icon: XCircle,     bg: 'bg-[#fdecea]', color: 'text-[#8c1f1f]', line: 'bg-[#f0a0a0]' },
 }
 
 interface ApprovalPanelProps {
@@ -68,15 +66,7 @@ export function ApprovalPanel({ voucher }: ApprovalPanelProps) {
           <h3 className="text-[13px] font-semibold text-[#18273a]">Approval Progress</h3>
         </div>
         {/* Overall status */}
-        <span className={cn(
-          'text-[11px] font-semibold px-2 py-0.5 rounded border',
-          voucher.approvalStatus === 'APPROVED' ? 'bg-[#eaf6f0] text-[#1a5c38] border-[#96d6b4]' :
-          voucher.approvalStatus === 'REJECTED' ? 'bg-[#fdecea] text-[#8c1f1f] border-[#f0a0a0]' :
-                                                  'bg-[#fdf7ed] text-[#7a5000] border-[#f0cd7a]'
-        )}>
-          {voucher.approvalStatus === 'APPROVED' ? 'Approved' :
-           voucher.approvalStatus === 'REJECTED' ? 'Rejected' : 'Pending'}
-        </span>
+        <VoucherStatusBadge status={voucher.status} />
       </div>
 
       <div className="px-5 py-4">
@@ -127,7 +117,7 @@ export function ApprovalPanel({ voucher }: ApprovalPanelProps) {
                   {step.timestamp && (
                     <p className="text-[10px] text-[#7a8fa3] mt-0.5">{formatDateTime(step.timestamp)}</p>
                   )}
-                  {step.status === 'rejected' && step.notes && (
+                  {step.notes && (
                     <div className="flex items-start gap-1.5 mt-1.5 px-2 py-1.5 rounded bg-[#fdecea] border border-[#f0a0a0]">
                       <AlertTriangle size={11} className="text-[#8c1f1f] flex-shrink-0 mt-0.5" />
                       <p className="text-[11px] text-[#8c1f1f]">{step.notes}</p>

@@ -60,6 +60,15 @@ export function VoucherInfoSection({
         )}
       </FormField>
 
+      {/* Voucher Number */}
+      <FormField label="Voucher Number" required error={errors.voucherNumber?.message}>
+        <Input
+          placeholder="e.g. VCH-2026-0001"
+          error={!!errors.voucherNumber}
+          {...register('voucherNumber')}
+        />
+      </FormField>
+
       {/* Linked QS (read-only display) */}
       {linkedQSNumber && (
         <FormField label="Linked QS" hint="Auto-populated from invoice">

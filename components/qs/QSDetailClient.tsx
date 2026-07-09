@@ -48,6 +48,8 @@ export function QSDetailClient({ id }: QSDetailClientProps) {
     queryFn:  () => fetchQSDetail(id),
   })
 
+  console.log(qs)
+
   // ── Mutations ─────────────────────────────────────────────────
   // After any mutation, invalidate both the list and this detail cache so
   // the list page reflects the change when the user navigates back.

@@ -52,6 +52,7 @@ export interface BackendPaymentItem {
   voucher?: {
     id:             string
     voucher_number: string
+    invoice_id:     string
   }
 }
 
@@ -86,8 +87,14 @@ export interface BackendPaymentMutationEnvelope {
 /**
  * Confirmed from createPaymentSchema in payments.validation.ts:
  *   voucher_id, installment_number, payment_date, due_date,
- *   paid_amount, remaining_amount, payment_status, remarks
- * `payment_proof` is in validation but has no Prisma column (schema mismatch — omitted).
+ *   paid_amount, remaining_amount, payment_status, remarks (all required)
+ *   payment_proof (optional)
+ * NOTE: payment_proof is accepted by the Zod schema and passed into
+ * prisma.payment.create() by the backend service, but the Prisma
+ * `Payment` model has no matching column — a known backend-side
+ * inconsistency (see PPMI Backend Integration Reference.md). Sending it
+ * matches the documented request contract; whether the backend persists
+ * it is outside the frontend's control.
  */
 export interface BackendCreatePaymentPayload {
   voucher_id:         string
@@ -98,6 +105,7 @@ export interface BackendCreatePaymentPayload {
   remaining_amount:   number
   payment_status:     BackendPaymentStatus
   remarks:            string
+  payment_proof?:     string
 }
 
 export type BackendUpdatePaymentPayload = Partial<BackendCreatePaymentPayload>
