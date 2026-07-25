@@ -10,4 +10,4 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function ShipmentDetailPage({ params }: Props) {
   // ShipmentDetailClient self-fetches via useQuery(['shipment-detail', id]).
   return <ShipmentDetailClient id={params.id} />
-}
+} 

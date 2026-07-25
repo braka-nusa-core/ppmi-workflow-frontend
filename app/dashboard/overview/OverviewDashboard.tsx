@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { fetchOverviewStats }      from '@/lib/api/overview'
 import { fetchOverviewWorkspace }  from '@/lib/api/overview'
 import { buildOverviewData }       from '@/lib/adapters/overview'
-import { MOCK_OVERVIEW_DATA }      from '@/lib/mock/overviewData'
 import { SummaryCards }            from '@/components/overview/SummaryCards'
 import { WorkflowPipelineStatus }  from '@/components/overview/WorkflowPipelineStatus'
 import { ActivityFeed }            from '@/components/overview/ActivityFeed'
@@ -12,12 +11,13 @@ import { FinanceMonitorPanel }     from '@/components/overview/FinanceMonitorPan
 import { DivisionOverview }        from '@/components/overview/DivisionOverview'
 import { OverviewPageHeader }      from '@/components/overview/OverviewPageHeader'
 import { LoadingSkeleton }         from '@/components/feedback/LoadingSkeleton'
+import { ErrorState }              from '@/components/feedback/ErrorState'
 import type { OverviewData }       from '@/types/overview'
 
 export function OverviewDashboard() {
-  const [data, setData]       = useState<OverviewData | null>(null)
+  const [data, setData]         = useState<OverviewData | null>(null)
   const [isLoading, setLoading] = useState(true)
-  const [isError, setError]   = useState(false)
+  const [isError, setError]     = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -30,9 +30,7 @@ export function OverviewDashboard() {
       setData(buildOverviewData(statsEnv.data, workspaceEnv.data))
     } catch (err) {
       console.error('[Overview] API fetch failed:', err)
-      // Fall back to mock so the page remains usable during API outages.
-      // Remove this fallback once API is confirmed stable.
-      setData(MOCK_OVERVIEW_DATA)
+      setData(null)
       setError(true)
     } finally {
       setLoading(false)
@@ -51,8 +49,23 @@ export function OverviewDashboard() {
     )
   }
 
-  // ── Data (real or mock fallback) ─────────────────────────────
-  const d = data ?? MOCK_OVERVIEW_DATA
+  // ── Error state — never mask a failed fetch with fake data ────
+  if (isError || !data) {
+    return (
+      <div className="page-container">
+        <OverviewPageHeader division="P&I · H&M" onRefresh={load} />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <ErrorState
+            message="Could not load overview data"
+            description="Unable to reach the server. Please check your connection and try again."
+            onRetry={load}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const d = data
 
   return (
     <div className="page-container">
@@ -62,16 +75,6 @@ export function OverviewDashboard() {
         division="P&I · H&M"
         onRefresh={load}
       />
-
-      {/* Optional: warn user when showing stale mock data */}
-      {isError && (
-        <div
-          className="mb-4 px-4 py-2.5 rounded-md text-[12px] font-medium"
-          style={{ background: '#fdf7ed', color: '#7a5000', border: '1px solid #f0cd7a' }}
-        >
-          Could not reach server — showing cached data. Refresh to retry.
-        </div>
-      )}
 
       {/* Row 1: Summary KPI Cards */}
       <section className="mb-5">
