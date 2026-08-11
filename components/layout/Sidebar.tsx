@@ -13,75 +13,41 @@ import {
   AlertTriangle,
   CheckSquare,
   BarChart2,
-  Users,
   Shield,
-  Settings,
+  ClipboardList,
+  type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useRole } from '@/hooks/useRole'
+import { getNavForRole, type NavItemConfig } from '@/config/navigation'
 
-interface NavItem {
-  label: string
-  href:  string
-  icon:  React.ElementType
-  badge?: string | number
+// Maps config/navigation.ts's iconName strings to actual icon components.
+const ICON_MAP: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  FileText,
+  Receipt,
+  Wallet,
+  CreditCard,
+  Package,
+  DollarSign,
+  AlertTriangle,
+  CheckSquare,
+  BarChart2,
+  Shield,
+  ClipboardList,
 }
 
-interface NavGroup {
-  label: string
-  items: NavItem[]
-}
-
-const NAV_CONFIG: NavGroup[] = [
-  {
-    label: '',
-    items: [
-      { label: 'Overview', href: '/dashboard/overview', icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'Workflow',
-    items: [
-      { label: 'Quotation Sheet', href: '/dashboard/qs',       icon: FileText   },
-      { label: 'Invoice',         href: '/dashboard/invoice',   icon: Receipt    },
-      { label: 'Voucher',         href: '/dashboard/voucher',   icon: Wallet     },
-      { label: 'Payment',         href: '/dashboard/payment',   icon: CreditCard },
-      { label: 'Shipment',        href: '/dashboard/shipment',  icon: Package    },
-    ],
-  },
-  {
-    label: 'Finance',
-    items: [
-      { label: 'Payment Monitor', href: '/dashboard/finance',              icon: DollarSign   },
-      { label: 'Overdue',         href: '/dashboard/finance/overdue',      icon: AlertTriangle, badge: 6 },
-      { label: 'Verification',    href: '/dashboard/finance/verification', icon: CheckSquare  },
-    ],
-  },
-  {
-    label: 'Reports',
-    items: [
-      { label: 'Reports', href: '/dashboard/reports', icon: BarChart2 },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      { label: 'Users',       href: '/dashboard/admin/users',    icon: Users    },
-      { label: 'Permissions', href: '/dashboard/admin/roles',    icon: Shield   },
-      { label: 'Settings',    href: '/dashboard/admin/settings', icon: Settings },
-    ],
-  },
-]
-
-function SidebarNavItem({ item }: { item: NavItem }) {
+function SidebarNavItem({ item }: { item: NavItemConfig }) {
   const pathname = usePathname()
   const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+  const Icon = ICON_MAP[item.iconName] ?? FileText
 
   return (
     <Link
       href={item.href}
       className={cn('nav-item group', isActive && 'active')}
     >
-      <item.icon
+      <Icon
         size={15}
         className={cn(
           'flex-shrink-0 transition-colors duration-100',
@@ -103,10 +69,13 @@ function SidebarNavItem({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
+  const { role } = useRole()
+  const navGroups = role ? getNavForRole(role) : []
+
   return (
     <aside className="app-sidebar flex flex-col">
       <nav className="py-2 flex-1">
-        {NAV_CONFIG.map((group, groupIdx) => (
+        {navGroups.map((group, groupIdx) => (
           <div key={groupIdx}>
             {group.label && (
               <p className="nav-group-label">{group.label}</p>
@@ -114,7 +83,7 @@ export function Sidebar() {
             {group.items.map((item) => (
               <SidebarNavItem key={item.href} item={item} />
             ))}
-            {groupIdx < NAV_CONFIG.length - 1 && group.label && (
+            {groupIdx < navGroups.length - 1 && group.label && (
               <div className="divider mx-4 my-2" />
             )}
           </div>

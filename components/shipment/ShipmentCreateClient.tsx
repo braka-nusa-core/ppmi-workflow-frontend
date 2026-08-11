@@ -10,7 +10,6 @@ import { createShipmentSchema, type CreateShipmentFormData } from '@/lib/validat
 import { createShipment }            from '@/lib/api/shipment'
 import { fetchInvoiceDetail }        from '@/lib/api/invoice'
 import { fetchPaymentDetail }        from '@/lib/api/payment'
-import { fetchVoucherDetail }        from '@/lib/api/voucher'
 import { Button }                    from '@/components/ui/Button'
 import { PageHeader }                from '@/components/layout/PageHeader'
 import { FormField, FormSection }    from '@/components/form/FormField'
@@ -27,30 +26,19 @@ export function ShipmentCreateClient() {
   const paymentIdParam   = searchParams.get('paymentId') ?? ''
 
   // ── Resolve invoiceId ──────────────────────────────────────────
-  // BUG FIX: Generate Shipment (from Payment) previously relied on
-  // Payment's response already containing voucher.invoice_id, which the
-  // backend does not actually return today (only voucher.id/voucher_number
-  // are selected in payments.service.ts) — so invoiceId always arrived
-  // empty in the URL. Rather than depend on that backend field, resolve
-  // it ourselves via fields that ARE guaranteed present: Payment.voucherId
-  // (always populated — it's a direct, required column) → Voucher detail
-  // → Voucher.invoiceId (always populated — invoice_id is a required,
-  // non-nullable column on the Voucher model). No backend change needed.
+  // Previously resolved via Payment.voucherId → Voucher detail →
+  // Voucher.invoiceId. As of Phase 5, Voucher no longer carries
+  // invoiceId at all — Voucher now originates from an RFI (rfiId),
+  // not an Invoice, so that hop no longer exists. Payment.invoiceId
+  // is itself a direct, required field on Payment, so we resolve
+  // straight from Payment instead of going through Voucher.
   const { data: paymentForResolve } = useQuery({
     queryKey: ['payment-detail', paymentIdParam],
     queryFn:  () => fetchPaymentDetail(paymentIdParam),
     enabled:  !invoiceIdFromUrl && !!paymentIdParam,
   })
 
-  const resolvedVoucherId = paymentForResolve?.voucherId
-
-  const { data: voucherForResolve } = useQuery({
-    queryKey: ['voucher-detail', resolvedVoucherId],
-    queryFn:  () => fetchVoucherDetail(resolvedVoucherId!).then((r) => r.data),
-    enabled:  !invoiceIdFromUrl && !!resolvedVoucherId,
-  })
-
-  const invoiceIdParam = invoiceIdFromUrl || voucherForResolve?.invoiceId || ''
+  const invoiceIdParam = invoiceIdFromUrl || paymentForResolve?.invoiceId || ''
 
   // ── Fetch linked invoice (when navigated from Invoice/Payment) ─
   const { data: invoice } = useQuery({

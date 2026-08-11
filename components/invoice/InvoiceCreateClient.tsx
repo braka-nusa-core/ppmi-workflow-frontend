@@ -18,8 +18,8 @@ import {
   InvoiceNotesSection,
 } from './InvoiceFormSections'
 import { cn }                          from '@/lib/utils'
-import { createInvoice, submitInvoice }    from '@/lib/api/invoice'
-import { fetchQSDetail }               from '@/lib/api/qs'
+import { createInvoice, issueInvoice }     from '@/lib/api/invoice'
+import { fetchVoucherDetail }          from '@/lib/api/voucher'
 
 const SECTIONS = [
   { id: 'invoice',   label: 'Invoice Info'   },
@@ -34,7 +34,7 @@ export function InvoiceCreateClient() {
   const router       = useRouter()
   const searchParams = useSearchParams()
   const qc           = useQueryClient()
-  const qsIdParam    = searchParams.get('qsId') ?? ''
+  const voucherInvoiceIdParam = searchParams.get('voucherInvoiceId') ?? ''
 
   const [isSaving,      setSaving]      = useState(false)
   const [isSubmitting,  setSubmitting]  = useState(false)
@@ -44,7 +44,7 @@ export function InvoiceCreateClient() {
   const form = useForm<CreateInvoiceFormData>({
     resolver: zodResolver(createInvoiceSchema),
     defaultValues: {
-      qsId:      qsIdParam,
+      voucherInvoiceId: voucherInvoiceIdParam,
       division:  'PI',
       currency:  'IDR',
       subtotal:  0,
@@ -55,28 +55,32 @@ export function InvoiceCreateClient() {
   const { handleSubmit, formState: { errors }, setValue } = form
   const errorCount = Object.keys(errors).length
 
-  // ── Fetch linked QS for auto-fill (real API, replaces QS_LOOKUP mock) ──
-  const { data: linkedQS } = useQuery({
-    queryKey:  ['qs-detail', qsIdParam],
-    queryFn:   () => fetchQSDetail(qsIdParam),
-    enabled:   !!qsIdParam,
+  // ── Fetch linked Voucher Invoice for auto-fill ──────────────────
+  // Invoice now originates from a Voucher Invoice (Phase 6), not a
+  // QS directly. Per the latest Finance API Specification, technical
+  // fields (client, vessel, premium, etc.) are system auto-filled
+  // from this chain and must not be manually re-entered.
+  const { data: linkedVoucher } = useQuery({
+    queryKey:  ['voucher-detail', voucherInvoiceIdParam],
+    queryFn:   () => fetchVoucherDetail(voucherInvoiceIdParam).then((r) => r.data),
+    enabled:   !!voucherInvoiceIdParam,
   })
 
-  // Auto-fill form fields from the linked QS once it loads
+  // Auto-fill form fields from the linked Voucher Invoice once it loads
   useEffect(() => {
-    if (!linkedQS) return
-    setValue('insuredName', linkedQS.insuredName)
-    setValue('vesselName',  linkedQS.vesselName)
-    setValue('currency',    linkedQS.currency)
-    setValue('subtotal',    linkedQS.premiumAmount)
-  }, [linkedQS, setValue])
+    if (!linkedVoucher) return
+    setValue('insuredName', linkedVoucher.insuredName)
+    setValue('vesselName',  linkedVoucher.vesselName)
+    setValue('currency',    linkedVoucher.currency)
+    setValue('subtotal',    linkedVoucher.amount)
+  }, [linkedVoucher, setValue])
 
   // ── Shared submit logic ─────────────────────────────────────────
-  const submit = async (data: CreateInvoiceFormData, status: 'DRAFT' | 'PENDING') => {
+  const submit = async (data: CreateInvoiceFormData, status: 'DRAFT' | 'ISSUED') => {
     setApiError(null)
     try {
       const created = await createInvoice(data)  // POST /invoices (adapter sets status: DRAFT)
-      if (status === 'PENDING') await submitInvoice(created.id) // PATCH status→PENDING
+      if (status === 'ISSUED') await issueInvoice(created.id) // PATCH status→ISSUED
       await qc.invalidateQueries({ queryKey: ['invoice-list'] })
       router.push('/dashboard/invoice')
     } catch (err: unknown) {
@@ -89,7 +93,7 @@ export function InvoiceCreateClient() {
     setSaving(true)
     try {
       // Trigger validation first; handleSubmit won't fire for Save Draft
-      // so we call submit directly only if qsId + insuredName are present
+      // so we call submit directly only if voucherInvoiceId + insuredName are present
       const values = form.getValues()
       await submit(values as CreateInvoiceFormData, 'DRAFT')
     } finally { setSaving(false) }
@@ -98,7 +102,7 @@ export function InvoiceCreateClient() {
   const onSubmit = async (data: CreateInvoiceFormData) => {
     setSubmitting(true)
     try {
-      await submit(data, 'PENDING')
+      await submit(data, 'ISSUED')
     } finally { setSubmitting(false) }
   }
 
@@ -112,8 +116,8 @@ export function InvoiceCreateClient() {
       <div className="page-container pb-0">
         <PageHeader
           title="New Invoice"
-          description={linkedQS
-            ? `Creating invoice from ${linkedQS.docNumber}`
+          description={linkedVoucher
+            ? `Creating invoice from ${linkedVoucher.docNumber}`
             : 'Create a new invoice document'
           }
           breadcrumbs={[
@@ -168,7 +172,7 @@ export function InvoiceCreateClient() {
           )}
 
           {/* Auto-fill notice */}
-          {linkedQS && (
+          {linkedVoucher && (
             <div
               className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6"
               style={{ background: '#e8f3fb', border: '1px solid #93c4e5' }}
@@ -176,11 +180,11 @@ export function InvoiceCreateClient() {
               <FileText size={14} className="text-[#123d6b] flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-[12px] font-semibold text-[#123d6b]">
-                  Auto-filled from {linkedQS.docNumber}
+                  Auto-filled from {linkedVoucher.docNumber}
                 </p>
                 <p className="text-[11px] text-[#2d6495] mt-0.5">
-                  Insured name, vessel, currency and premium amount have been pre-filled.
-                  Review and adjust as needed before issuing.
+                  Insured name, vessel, currency and amount have been pre-filled from the
+                  linked Voucher Invoice per the system auto-fill rules. Review before issuing.
                 </p>
               </div>
             </div>
@@ -200,7 +204,7 @@ export function InvoiceCreateClient() {
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
               <div id="invoice"   className="pb-8">
-                <InvoiceInfoSection form={form} linkedQSNumber={linkedQS?.docNumber} />
+                <InvoiceInfoSection form={form} linkedVoucherNumber={linkedVoucher?.docNumber} />
               </div>
               <div id="billing"   className="py-8"><BillingInfoSection   form={form} /></div>
               <div id="payment"   className="py-8"><PaymentInfoSection   form={form} /></div>

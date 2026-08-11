@@ -61,10 +61,8 @@ export interface VoucherDocument {
   status:         VoucherStatus
 
   // Linked documents
-  invoiceId:      string
-  invoiceNumber:  string
-  qsId:           string
-  qsNumber:       string
+  rfiId:          string
+  rfiNumber:      string
   paymentId?:     string
   paymentNumber?: string
 
@@ -115,8 +113,7 @@ export interface VoucherListItem {
   id:             string
   docNumber:      string
   division:       Division
-  invoiceNumber:  string
-  qsNumber:       string
+  rfiNumber:      string
   insuredName:    string
   paymentType:    VoucherPaymentType
   bankName:       string
@@ -130,7 +127,8 @@ export interface VoucherListItem {
 
 // ─── Create payload ──────────────────────────────────────────────
 export interface CreateVoucherPayload {
-  invoiceId:       string
+  rfiId:           string   // was invoiceId — Voucher now originates from an approved RFI
+  receivedDate?:   string   // per latest spec's create request; when Finance received the RFI documents
   voucherNumber:   string   // user-entered; backend requires as non-empty string, no auto-generation
   division:        Division
   paymentType:     VoucherPaymentType

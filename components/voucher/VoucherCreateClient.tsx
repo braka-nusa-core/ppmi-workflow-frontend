@@ -9,7 +9,7 @@ import { Save, Send, X, Receipt } from 'lucide-react'
 import { createVoucherSchema, type CreateVoucherFormData } from '@/lib/validations/voucher'
 import { createVoucher }            from '@/lib/api/voucher'
 import type { BackendVoucherStatus } from '@/types/backend/voucher'
-import { fetchInvoiceDetail }       from '@/lib/api/invoice'
+import { fetchRfiDetail }           from '@/lib/api/rfi'
 import { Button }                   from '@/components/ui/Button'
 import { PageHeader }               from '@/components/layout/PageHeader'
 import { QSAttachmentUpload }       from '@/components/qs/QSAttachmentUpload'
@@ -38,23 +38,26 @@ export function VoucherCreateClient() {
   const queryClient  = useQueryClient()
   const { success, error: toastError } = useToast()
 
-  const invoiceIdParam = searchParams.get('invoiceId') ?? ''
+  const rfiIdParam = searchParams.get('rfiId') ?? ''
   const [activeSection, setActive] = [
     'voucher',
     (s: string) => { document.getElementById(s)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   ]
 
-  // ── Fetch linked invoice (when navigated from Invoice detail) ─
-  const { data: invoice } = useQuery({
-    queryKey: ['invoice-detail', invoiceIdParam],
-    queryFn:  () => fetchInvoiceDetail(invoiceIdParam),
-    enabled:  !!invoiceIdParam,
+  // ── Fetch linked RFI (when navigated from RFI detail) ──────────
+  // Voucher now originates from an approved/waiting-finance RFI, not
+  // from an Invoice — Invoice is created FROM the Voucher (Phase 6),
+  // so no Invoice exists yet at the point a Voucher is created.
+  const { data: rfi } = useQuery({
+    queryKey: ['rfi-detail', rfiIdParam],
+    queryFn:  () => fetchRfiDetail(rfiIdParam),
+    enabled:  !!rfiIdParam,
   })
 
   const form = useForm<CreateVoucherFormData>({
     resolver: zodResolver(createVoucherSchema),
     defaultValues: {
-      invoiceId:    invoiceIdParam,
+      rfiId:        rfiIdParam,
       division:     'PI',
       currency:     'IDR',
       amount:       0,
@@ -67,16 +70,16 @@ export function VoucherCreateClient() {
   const { handleSubmit, formState: { errors }, setValue, getValues } = form
   const errorCount = Object.keys(errors).length
 
-  // Pre-fill form from invoice once loaded
+  // Pre-fill rfiId once the RFI query resolves (covers the case where
+  // the query param arrives after initial mount).
+  // Note: unlike the old Invoice-sourced flow, RFI carries no
+  // division/currency/amount/bank data to auto-fill — Finance enters
+  // payment and bank details fresh at Voucher creation, consistent
+  // with the latest Finance API Specification's create payload
+  // ({ rfiId, receivedDate, notes }), which has no such fields either.
   useEffect(() => {
-    if (!invoice) return
-    setValue('division', invoice.division)
-    setValue('currency', invoice.currency)
-    setValue('amount',   invoice.totalAmount)
-    if (invoice.bankInfo?.bankName)      setValue('bankName',      invoice.bankInfo.bankName)
-    if (invoice.bankInfo?.accountNumber) setValue('accountNumber', invoice.bankInfo.accountNumber)
-    if (invoice.bankInfo?.accountName)   setValue('accountName',   invoice.bankInfo.accountName)
-  }, [invoice, setValue])
+    if (rfiIdParam) setValue('rfiId', rfiIdParam)
+  }, [rfiIdParam, setValue])
 
   // ── Create mutation ───────────────────────────────────────────
   // status is passed explicitly so the adapter can set it correctly:
@@ -97,8 +100,8 @@ export function VoucherCreateClient() {
   // Save as Draft — light validation only
   const handleSaveDraft = () => {
     const data = getValues()
-    if (!data.invoiceId || !data.voucherNumber || !data.bankName || !data.accountNumber || !data.amount) {
-      toastError('Required fields missing', 'Please fill in Invoice, Voucher Number, Bank Name, Account Number, and Amount before saving.')
+    if (!data.rfiId || !data.voucherNumber || !data.bankName || !data.accountNumber || !data.amount) {
+      toastError('Required fields missing', 'Please fill in RFI, Voucher Number, Bank Name, Account Number, and Amount before saving.')
       return
     }
     createMutation.mutate({ data: { ...data, paymentType: data.paymentType ?? 'BANK_TRANSFER' }, status: 'DRAFT' })
@@ -121,7 +124,7 @@ export function VoucherCreateClient() {
       <div className="page-container pb-0">
         <PageHeader
           title="New Voucher"
-          description={invoice ? `Creating voucher from ${invoice.docNumber}` : 'Create a new payment voucher'}
+          description={rfi ? `Creating voucher from ${rfi.id}` : 'Create a new payment voucher'}
           breadcrumbs={[
             { label: 'Voucher', href: '/dashboard/voucher' },
             { label: 'New Voucher' },
@@ -159,14 +162,14 @@ export function VoucherCreateClient() {
         {/* Form */}
         <div className="flex-1 overflow-y-auto page-container pt-6">
 
-          {/* Invoice pre-fill banner */}
-          {invoice && (
+          {/* RFI pre-fill banner */}
+          {rfi && (
             <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6" style={{ background: '#e8f3fb', border: '1px solid #93c4e5' }}>
               <Receipt size={14} className="text-[#123d6b] flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-[12px] font-semibold text-[#123d6b]">Auto-filled from {invoice.docNumber}</p>
+                <p className="text-[12px] font-semibold text-[#123d6b]">Linked to RFI {rfi.id}</p>
                 <p className="text-[11px] text-[#2d6495] mt-0.5">
-                  Division, currency, amount, and bank details have been pre-filled from the linked invoice. Review before submitting.
+                  Enter payment and bank details below to create the voucher for this request.
                 </p>
               </div>
             </div>
@@ -177,8 +180,8 @@ export function VoucherCreateClient() {
               <div id="voucher"   className="pb-8">
                 <VoucherInfoSection
                   form={form}
-                  linkedInvoiceNumber={invoice?.docNumber}
-                  linkedQSNumber={invoice?.qsNumber}
+                  linkedRfiNumber={rfi?.id}
+                  linkedInsuredName={rfi?.insured}
                 />
               </div>
               <div id="payment"   className="py-8"><VoucherPaymentSection  form={form} /></div>

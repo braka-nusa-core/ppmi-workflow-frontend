@@ -2,7 +2,7 @@
 
 import { ArrowRight, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import type { DocumentStatus, WorkflowStage } from '@/types/workflow'
+import { STAGE_CONFIG, type DocumentStatus, type WorkflowStage } from '@/types/workflow'
 import { getNextStage, isLastStage } from '@/hooks/useWorkflow'
 
 // ─── Advance to Next Stage ───────────────────────────────────────
@@ -26,14 +26,6 @@ export function AdvanceStageButton({
   if (!nextStage || isLastStage(currentStage)) return null
   if (!canAdvance) return null
 
-  const STAGE_LABELS: Record<WorkflowStage, string> = {
-    QS:       'Quotation Sheet',
-    INVOICE:  'Invoice',
-    VOUCHER:  'Voucher',
-    PAYMENT:  'Payment',
-    SHIPMENT: 'Shipment',
-  }
-
   return (
     <Button
       variant="primary"
@@ -43,7 +35,7 @@ export function AdvanceStageButton({
       icon={<ArrowRight size={13} />}
       onClick={onAdvance}
     >
-      Advance to {STAGE_LABELS[nextStage]}
+      Advance to {STAGE_CONFIG[nextStage].label}
     </Button>
   )
 }

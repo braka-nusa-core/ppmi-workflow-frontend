@@ -21,7 +21,7 @@ import {
   InvoiceNotesSection,
 } from './InvoiceFormSections'
 import { cn }                          from '@/lib/utils'
-import { fetchInvoiceDetail, updateInvoice, submitInvoice } from '@/lib/api/invoice'
+import { fetchInvoiceDetail, updateInvoice, issueInvoice } from '@/lib/api/invoice'
 
 const SECTIONS = [
   { id: 'invoice',   label: 'Invoice Info'   },
@@ -55,11 +55,11 @@ export function InvoiceEditClient({ id }: { id: string }) {
     queryFn:  () => fetchInvoiceDetail(id),
   })
 
-  // ── Guard: only DRAFT/PENDING can be edited ─────────────────────
+  // ── Guard: only DRAFT can be edited ──────────────────────────────
   // Redirect to detail if status is not editable
   useEffect(() => {
     if (!invoice) return
-    if (invoice.status !== 'DRAFT' && invoice.status !== 'PENDING') {
+    if (invoice.status !== 'DRAFT') {
       notFound()
     }
   }, [invoice])
@@ -68,7 +68,7 @@ export function InvoiceEditClient({ id }: { id: string }) {
   useEffect(() => {
     if (!invoice || isPopulated) return
     reset({
-      qsId:           invoice.qsId        ?? '',
+      voucherInvoiceId: invoice.voucherInvoiceId ?? '',
       division:       invoice.division,
       insuredName:    invoice.insuredName,
       vesselName:     invoice.vesselName     ?? '',
@@ -113,12 +113,12 @@ export function InvoiceEditClient({ id }: { id: string }) {
     } finally { setSaving(false) }
   }
 
-  // ── Save & Issue (PATCH fields + submit to PENDING) ─────────────
+  // ── Save & Issue (PATCH fields + transition to ISSUED) ──────────
   const onSubmit = async (data: CreateInvoiceFormData) => {
     setSubmitting(true)
     setApiError(null)
     try {
-      // First patch the latest field values, then transition to PENDING
+      // First patch the latest field values, then transition to ISSUED
       await updateInvoice(id, {
         insuredName:   data.insuredName,
         currency:      data.currency,
@@ -127,7 +127,7 @@ export function InvoiceEditClient({ id }: { id: string }) {
         subtotal:      data.subtotal,
         internalNotes: data.internalNotes,
       })
-      await submitInvoice(id)            // PATCH /invoices/:id { status: 'PENDING' }
+      await issueInvoice(id)             // PATCH /invoices/:id { status: 'ISSUED' }
       await invalidate()
       router.push(`/dashboard/invoice/${id}`)
     } catch (err: unknown) {
@@ -213,7 +213,7 @@ export function InvoiceEditClient({ id }: { id: string }) {
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
               <div id="invoice"   className="pb-8">
-                <InvoiceInfoSection form={form} linkedQSNumber={invoice.qsNumber} />
+                <InvoiceInfoSection form={form} linkedVoucherNumber={invoice.voucherInvoiceNumber} />
               </div>
               <div id="billing"   className="py-8"><BillingInfoSection  form={form} /></div>
               <div id="payment"   className="py-8"><PaymentInfoSection  form={form} /></div>

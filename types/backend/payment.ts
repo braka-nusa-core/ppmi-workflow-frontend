@@ -1,127 +1,104 @@
 /**
- * Raw backend Payment response types.
- * Confirmed from backend source:
- *   src/payments/payments.service.ts, src/payments/payments.validation.ts,
- *   prisma/schema.prisma, PPMI Backend Integration Reference.md
+ * Raw backend Incoming Payment (AR) response/payload types.
+ *
+ * Modeled directly from the latest Finance API Specification (Source
+ * of Truth), following the same camelCase / { success, data,
+ * pagination } envelope convention established in types/backend/policy.ts,
+ * rfi.ts (Phase 3/4). Per Phase 7's explicit workflow requirement,
+ * Incoming Payment now originates from Invoice — invoiceId, not
+ * voucherId (the earlier contract's origin field).
+ *
+ * Historical note: the previous version of this file was confirmed
+ * against an earlier backend contract (voucher_id origin, snake_case,
+ * due_date/remaining_amount/installment_number as required create
+ * fields, no paymentMethod/bankAccount/referenceNumber). Per project
+ * ruling, that contract is treated as historical only — the latest
+ * API Specification is authoritative.
  *
  * Used ONLY in lib/adapters/payment.ts — never imported by components.
- *
- * IMPORTANT: The backend Payment model is a FLAT installment record —
- * each Payment row IS one installment. There is no parent "payment document"
- * with a child installments array. The frontend PaymentDocument model (with
- * sub-installments, verificationStatus, etc.) is a frontend abstraction that
- * does not match the real backend shape.
  */
 
-// ─── Backend enums ────────────────────────────────────────────────
+// ─── Status ────────────────────────────────────────────────────────
 /**
- * prisma: enum PaymentStatus { UNPAID  INSTALLMENT  PAID }
- *
- * Frontend has UNPAID | PARTIAL | PAID | OVERDUE — mismatched.
- * Mapping applied in adapter:
- *   UNPAID      → UNPAID      (direct)
- *   INSTALLMENT → INSTALLMENT (partially paid installment)
- *   PAID        → PAID        (direct)
- *   PARTIAL     does NOT exist in backend — legacy frontend only
- *   OVERDUE     does NOT exist in backend — computed from dueDate client-side
+ * Per the latest Finance API Specification's documented Incoming
+ * Payment status flow: UNPAID → PARTIAL → PAID (system-derived from
+ * Total Invoice - Total Payment = Remaining Balance).
  */
-export type BackendPaymentStatus = 'UNPAID' | 'INSTALLMENT' | 'PAID'
+export type BackendPaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID'
 
-// ─── Backend list/detail item ─────────────────────────────────────
-/**
- * Each row returned by GET /payments and GET /payments/:id.
- * The `id` field is auto-generated PAY-YYYYMMDD-NNN.
- * The backend Payment model has NO: division, insuredName, vesselName,
- * verificationStatus, isInstallment flag, installments array, lastPaymentDate,
- * lastPaymentMethod, lastReferenceNumber, activity log.
- * Those are frontend-only abstractions or belong to linked Voucher/Invoice.
- */
+// ─── List/detail item ──────────────────────────────────────────────
 export interface BackendPaymentItem {
-  id:                 string         // PAY-YYYYMMDD-NNN
-  voucher_id:         string         // linked voucher doc number
-  installment_number: number
-  payment_date:       string | Date | null
-  due_date:           string | Date
-  paid_amount:        number
-  remaining_amount:   number
-  payment_status:     BackendPaymentStatus
-  remarks:            string
-  created_at:         string | Date
-  updated_at:         string | Date
-  // Nested relation — present in list and detail responses
-  voucher?: {
+  id:               string
+  invoiceId:        string          // was voucher_id — Payment now originates from Invoice
+  paymentDate:      string
+  amount:           number
+  paymentMethod:    string
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
+  status:           BackendPaymentStatus
+  remainingBalance: number          // system-computed: Total Invoice - Total Payment
+  createdBy:        string
+  createdAt:        string
+  updatedAt:        string
+  invoice?: {
     id:             string
-    voucher_number: string
-    invoice_id:     string
+    invoiceNumber:  string
+    amount:         number          // total invoice amount, for computing paid/remaining on the frontend
+    insured?:       string
   }
 }
 
 export type BackendPaymentDetail = BackendPaymentItem
 
-// ─── List response envelope ───────────────────────────────────────
-export interface BackendPaymentListData {
-  items:        BackendPaymentItem[]
-  total_pages:  number
-  current_page: number
-}
-
+// ─── Envelopes ─────────────────────────────────────────────────────
 export interface BackendPaymentListEnvelope {
-  success:     boolean
-  status_code: number
-  data:        BackendPaymentListData
+  success:    boolean
+  data:       BackendPaymentItem[]
+  pagination: { page: number; limit: number; total: number; totalPages: number }
 }
 
 export interface BackendPaymentDetailEnvelope {
-  success:     boolean
-  status_code: number
-  data:        BackendPaymentDetail
+  success:  boolean
+  message?: string
+  data:     BackendPaymentDetail
 }
 
 export interface BackendPaymentMutationEnvelope {
-  success:     boolean
-  status_code: number
-  data:        BackendPaymentDetail
+  success:  boolean
+  message?: string
+  data:     { id: string; status: BackendPaymentStatus; remainingBalance: number }
 }
 
-// ─── Create/update payload ────────────────────────────────────────
+// ─── Create payload ──────────────────────────────────────────────
 /**
- * Confirmed from createPaymentSchema in payments.validation.ts:
- *   voucher_id, installment_number, payment_date, due_date,
- *   paid_amount, remaining_amount, payment_status, remarks (all required)
- *   payment_proof (optional)
- * NOTE: payment_proof is accepted by the Zod schema and passed into
- * prisma.payment.create() by the backend service, but the Prisma
- * `Payment` model has no matching column — a known backend-side
- * inconsistency (see PPMI Backend Integration Reference.md). Sending it
- * matches the documented request contract; whether the backend persists
- * it is outside the frontend's control.
+ * Matches POST /finance/ar/payments per the latest Finance API
+ * Specification exactly: { invoiceId, paymentDate, amount,
+ * paymentMethod, bankAccount, referenceNumber, notes }.
+ * due_date, remaining_amount, and installment_number — all required
+ * on the earlier contract's create payload — are NOT part of the
+ * documented request body: remaining balance is computed server-side
+ * and returned in the response only; installments are implicit
+ * (each POST is one payment entry against the same invoice, sequenced
+ * by the backend, not by a client-supplied number).
  */
 export interface BackendCreatePaymentPayload {
-  voucher_id:         string
-  installment_number: number
-  payment_date:       string | null
-  due_date:           string
-  paid_amount:        number
-  remaining_amount:   number
-  payment_status:     BackendPaymentStatus
-  remarks:            string
-  payment_proof?:     string
+  invoiceId:        string
+  paymentDate:      string
+  amount:           number
+  paymentMethod:    string
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
 }
 
 export type BackendUpdatePaymentPayload = Partial<BackendCreatePaymentPayload>
 
-// ─── Query params ─────────────────────────────────────────────────
-/**
- * Backend listPayments() accepts:
- *   voucher_id, payment_status, search, page, limit, sort_by, sort_order
- * Does NOT accept: division, isInstallment, dueDate range filters
- */
+// ─── Query params ──────────────────────────────────────────────────
 export interface BackendPaymentQueryParams {
-  voucher_id?:     string
-  payment_status?: string
-  search?:         string
-  page?:           string
-  limit?:          string
-  sort_by?:        string
-  sort_order?:     string
+  invoiceId?: string
+  status?:    string
+  search?:    string
+  page?:      string
+  limit?:     string
 }

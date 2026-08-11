@@ -1,19 +1,19 @@
 /**
- * Payment adapters — map raw backend Payment records to frontend
- * PaymentListItem / PaymentDocument shapes, and map frontend
- * create/update payloads to BackendCreatePaymentPayload.
+ * Incoming Payment adapters — map raw backend Payment records to
+ * frontend PaymentListItem/PaymentDocument shapes, and map frontend
+ * create payloads to BackendCreatePaymentPayload.
  *
- * KEY STRUCTURAL NOTE:
- * The backend Payment model is a FLAT installment record. Each row IS
- * one installment (installment_number, paid_amount, remaining_amount, etc.).
- * The frontend PaymentDocument with nested installments array does not exist
- * in the backend — we map a single backend Payment record to both
- * PaymentListItem and PaymentDocument, with installments: [] stub.
+ * Same pattern as lib/adapters/policy.ts / rfi.ts (Phase 3/4).
  *
- * Frontend PaymentStatus derivation:
- *   backend UNPAID      → 'UNPAID'       (or 'OVERDUE' if dueDate < today)
- *   backend INSTALLMENT → 'INSTALLMENT'  (or 'OVERDUE' if dueDate < today)
- *   backend PAID        → 'PAID'
+ * STRUCTURAL NOTE (unchanged from the module's original design):
+ * the backend Payment model is a flat record — each row IS one
+ * payment/installment entry against an invoice. There is no parent
+ * "payment document" with a child installments array on the backend.
+ * The frontend's richer PaymentDocument (with an installments array,
+ * verificationStatus, activity log) remains a frontend-side grouping
+ * convenience, not a 1:1 backend mirror — same acknowledgment as the
+ * previous version of this file, just re-targeted to originate from
+ * Invoice instead of Voucher.
  */
 
 import type { PaymentListItem, PaymentDocument, PaymentFilters } from '@/types/payment'
@@ -32,46 +32,32 @@ function toISO(v: string | Date | null | undefined): string {
   return v
 }
 
-function isOverdue(dueDate: string | Date): boolean {
+function isOverdue(dueDate: string | Date | undefined): boolean {
   if (!dueDate) return false
   return new Date(dueDate) < new Date()
 }
 
-/**
- * Convert a date-input value ("YYYY-MM-DD") to a full ISO-8601 DateTime
- * string required by Prisma ("YYYY-MM-DDTHH:mm:ss.sssZ").
- *
- * Same convention as qs.ts/voucher.ts's dateInputToISO and invoice.ts's
- * toOutboundDate: HTML <input type="date"> always returns "YYYY-MM-DD"
- * with no time part, which Prisma rejects as an invalid DateTime.
- * Returns undefined if the value is empty so optional fields are omitted cleanly.
- */
+/** HTML <input type="date"> → full ISO-8601 DateTime, same convention as policy.ts/rfi.ts. */
 function dateInputToISO(dateStr: string | undefined | null): string | undefined {
   if (!dateStr) return undefined
-  if (dateStr.includes('T')) return dateStr   // already a full DateTime — pass through
+  if (dateStr.includes('T')) return dateStr
   return `${dateStr}T00:00:00.000Z`
 }
 
 /**
  * Derive frontend PaymentStatus from backend status + due date.
- * OVERDUE is a frontend-only derived state for UNPAID/INSTALLMENT payments
- * whose due date has passed.
+ * OVERDUE is a frontend-only derived state for UNPAID/PARTIAL payments
+ * whose invoice due date has passed. Due date isn't on the Payment
+ * record itself under the invoice-origin model — callers pass the
+ * linked invoice's due date in explicitly where available.
  */
 function toFrontendStatus(
   status: BackendPaymentStatus,
-  dueDate: string | Date
+  invoiceDueDate?: string | Date
 ): PaymentListItem['paymentStatus'] {
   if (status === 'PAID') return 'PAID'
-  if (isOverdue(dueDate)) return 'OVERDUE'
-  return status  // UNPAID or INSTALLMENT pass through
-}
-
-function toBackendStatus(
-  status: PaymentListItem['paymentStatus'] | undefined
-): BackendPaymentStatus {
-  if (status === 'PAID') return 'PAID'
-  if (status === 'INSTALLMENT' || status === 'PARTIAL') return 'INSTALLMENT'
-  return 'UNPAID'
+  if (isOverdue(invoiceDueDate)) return 'OVERDUE'
+  return status  // UNPAID or PARTIAL pass through
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -79,69 +65,63 @@ function toBackendStatus(
 // ════════════════════════════════════════════════════════════════
 
 export function mapPaymentListItem(item: BackendPaymentItem): PaymentListItem {
-  const dueISO = toISO(item.due_date)
+  const totalAmt = item.invoice?.amount ?? (item.amount + item.remainingBalance)
   return {
     id:                 item.id,
     docNumber:          item.id,
-    division:           'PI',                          // not in Payment model — unknown; stub
-    voucherNumber:      item.voucher?.voucher_number ?? item.voucher_id,
-    invoiceId:          item.voucher?.invoice_id ?? '',  // now available via voucher.invoice_id
-    invoiceNumber:      '',                            // not in Payment model — derive via Voucher integration
-    insuredName:        item.remarks || '—',           // remarks is the closest text field available
-    currency:           'IDR',                         // not in Payment model — default; stub
-    totalAmount:        item.paid_amount + item.remaining_amount,
-    paidAmount:         item.paid_amount,
-    remainingAmount:    item.remaining_amount,
-    dueDate:            dueISO,
-    paymentStatus:      toFrontendStatus(item.payment_status, item.due_date),
-    verificationStatus: 'UNVERIFIED',                  // not in Payment model
-    isInstallment:      item.installment_number > 1,
-    installmentCount:   item.installment_number,
-    hasShipment:        false,                         // not in Payment model
-    createdAt:          toISO(item.created_at),
+    division:           'PI',                              // not in Payment response — stub, no division relation
+    invoiceId:          item.invoiceId,
+    invoiceNumber:      item.invoice?.invoiceNumber ?? item.invoiceId,
+    insuredName:        item.invoice?.insured ?? item.notes ?? '—',
+    currency:           'IDR',                              // not in Payment response — default; stub
+    totalAmount:        totalAmt,
+    paidAmount:         item.amount,
+    remainingAmount:    item.remainingBalance,
+    dueDate:            '',                                 // not on Payment response — would need Invoice detail
+    paymentStatus:      toFrontendStatus(item.status),
+    verificationStatus: 'UNVERIFIED',                        // not in Payment response
+    isInstallment:      item.remainingBalance > 0,
+    hasShipment:        false,                               // not in Payment response
+    createdAt:          toISO(item.createdAt),
   }
 }
 
 export function mapPaymentDetail(item: BackendPaymentItem): PaymentDocument {
-  const dueISO    = toISO(item.due_date)
-  const totalAmt  = item.paid_amount + item.remaining_amount
+  const totalAmt = item.invoice?.amount ?? (item.amount + item.remainingBalance)
   return {
     id:                  item.id,
     docNumber:           item.id,
-    division:            'PI',                         // not in Payment model — stub
-    paymentStatus:       toFrontendStatus(item.payment_status, item.due_date),
-    verificationStatus:  'UNVERIFIED',                 // not in Payment model
+    division:            'PI',                              // not in Payment response — stub
+    paymentStatus:       toFrontendStatus(item.status),
+    verificationStatus:  'UNVERIFIED',                       // not in Payment response
 
-    voucherId:           item.voucher_id,
-    voucherNumber:       item.voucher?.voucher_number ?? item.voucher_id,
-    invoiceId:           item.voucher?.invoice_id ?? '',  // now available via voucher.invoice_id
-    invoiceNumber:       '',                           // not in Payment model — stub
-    qsId:                '',                           // not in Payment model — stub
-    qsNumber:            '',                           // not in Payment model — stub
+    invoiceId:           item.invoiceId,
+    invoiceNumber:       item.invoice?.invoiceNumber ?? item.invoiceId,
 
-    insuredName:         item.remarks || '—',          // closest available field
-    currency:            'IDR',                        // not in Payment model — stub
+    insuredName:         item.invoice?.insured ?? item.notes ?? '—',
+    currency:            'IDR',                              // not in Payment response — stub
 
     totalAmount:         totalAmt,
-    paidAmount:          item.paid_amount,
-    remainingAmount:     item.remaining_amount,
+    paidAmount:          item.amount,
+    remainingAmount:     item.remainingBalance,
 
-    dueDate:             dueISO,
-    paidDate:            toISO(item.payment_date) || undefined,
+    dueDate:             '',                                 // not on Payment response
+    paidDate:            toISO(item.paymentDate) || undefined,
 
-    isInstallment:       item.installment_number > 1,
-    installmentCount:    item.installment_number,
-    installments:        [],                           // flat model — no child installments
+    isInstallment:       item.remainingBalance > 0,
+    installments:        [],                                 // flat model — see file header note
 
-    lastPaymentDate:     toISO(item.payment_date) || undefined,
-    lastPaymentAmount:   item.paid_amount,
+    lastPaymentDate:     toISO(item.paymentDate) || undefined,
+    lastPaymentAmount:   item.amount,
+    lastPaymentMethod:   item.paymentMethod as PaymentDocument['lastPaymentMethod'],
+    lastReferenceNumber: item.referenceNumber,
 
-    internalNotes:       item.remarks,
+    internalNotes:       item.notes,
 
-    createdBy:           '',                           // not in Payment model
-    createdAt:           toISO(item.created_at),
-    updatedAt:           toISO(item.updated_at),
-    activity:            [],                           // not in Payment model
+    createdBy:           item.createdBy,
+    createdAt:           toISO(item.createdAt),
+    updatedAt:           toISO(item.updatedAt),
+    activity:            [],                                 // not in Payment response
   }
 }
 
@@ -150,92 +130,62 @@ export function mapPaymentDetail(item: BackendPaymentItem): PaymentDocument {
 // ════════════════════════════════════════════════════════════════
 
 /**
- * Map frontend CreatePaymentFormData → BackendCreatePaymentPayload.
- * The backend expects flat installment fields, not a "payment document".
+ * Map frontend RecordPaymentPayload/CreatePaymentPayload →
+ * BackendCreatePaymentPayload. Matches the latest spec's create
+ * request exactly: no due_date, remaining_amount, or
+ * installment_number — the backend computes/sequences those itself.
  */
 export function mapCreatePaymentPayload(payload: {
-  voucherId:         string
-  installmentNumber: number
-  paymentDate?:      string | null
-  dueDate:           string
-  paidAmount:        number
-  remainingAmount:   number
-  paymentStatus:     BackendPaymentStatus
-  remarks:           string
-  paymentProof?:     string
+  invoiceId:        string
+  paidDate:         string
+  paidAmount:       number
+  paymentMethod:    string
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
 }): BackendCreatePaymentPayload {
   return {
-    voucher_id:         payload.voucherId,
-    installment_number: payload.installmentNumber,
-    payment_date:       dateInputToISO(payload.paymentDate) ?? null,
-    due_date:           dateInputToISO(payload.dueDate) ?? payload.dueDate,
-    paid_amount:        Math.round(payload.paidAmount),
-    remaining_amount:   Math.round(payload.remainingAmount),
-    payment_status:     payload.paymentStatus,
-    remarks:            payload.remarks || '-',
-    ...(payload.paymentProof ? { payment_proof: payload.paymentProof } : {}),
+    invoiceId:        payload.invoiceId,
+    paymentDate:      dateInputToISO(payload.paidDate) ?? payload.paidDate,
+    amount:           Math.round(payload.paidAmount),
+    paymentMethod:    payload.paymentMethod,
+    bankAccount:      payload.bankAccount,
+    referenceNumber:  payload.referenceNumber,
+    notes:            payload.notes,
   }
 }
 
-/**
- * Map update fields → BackendUpdatePaymentPayload (all optional).
- */
 export function mapUpdatePaymentPayload(payload: {
   paidAmount?:      number
-  remainingAmount?: number
-  paymentStatus?:   PaymentListItem['paymentStatus']
-  paymentDate?:     string | null
-  dueDate?:         string
-  remarks?:         string
+  paidDate?:        string
+  paymentMethod?:   string
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
 }): BackendUpdatePaymentPayload {
   const result: BackendUpdatePaymentPayload = {}
-  if (payload.paidAmount != null)      result.paid_amount       = Math.round(payload.paidAmount)
-  if (payload.remainingAmount != null) result.remaining_amount  = Math.round(payload.remainingAmount)
-  if (payload.paymentStatus)           result.payment_status    = toBackendStatus(payload.paymentStatus)
-  if (payload.paymentDate !== undefined) result.payment_date    = dateInputToISO(payload.paymentDate) ?? null
-  if (payload.dueDate)                 result.due_date          = dateInputToISO(payload.dueDate)
-  if (payload.remarks)                 result.remarks           = payload.remarks
+  if (payload.paidAmount != null) result.amount        = Math.round(payload.paidAmount)
+  if (payload.paidDate)           result.paymentDate   = dateInputToISO(payload.paidDate)
+  if (payload.paymentMethod)      result.paymentMethod = payload.paymentMethod
+  if (payload.bankAccount)        result.bankAccount   = payload.bankAccount
+  if (payload.referenceNumber)    result.referenceNumber = payload.referenceNumber
+  if (payload.notes)              result.notes         = payload.notes
   return result
 }
 
-/**
- * Map frontend PaymentFilters → BackendPaymentQueryParams.
- */
 export function mapPaymentQueryParams(
-  filters: PaymentFilters & {
-    page?:     number
-    pageSize?: number
-    sortBy?:   string
-    sortDir?:  'asc' | 'desc'
-  }
+  filters: PaymentFilters & { page?: number }
 ): BackendPaymentQueryParams {
-  const SORT_FIELD_MAP: Record<string, string> = {
-    docNumber:       'id',
-    paidAmount:      'paid_amount',
-    remainingAmount: 'remaining_amount',
-    dueDate:         'due_date',
-    createdAt:       'created_at',
-    updatedAt:       'updated_at',
-  }
-
   const params: BackendPaymentQueryParams = {}
+  if (filters.search) params.search = filters.search
+  if (filters.page)   params.page   = String(filters.page)
 
-  if (filters.search)   params.search     = filters.search
-  if (filters.page)     params.page       = String(filters.page)
-  if (filters.pageSize) params.limit      = String(filters.pageSize)
-  if (filters.sortDir)  params.sort_order = filters.sortDir
-  if (filters.sortBy && SORT_FIELD_MAP[filters.sortBy]) {
-    params.sort_by = SORT_FIELD_MAP[filters.sortBy]
-  }
-
-  // Map frontend paymentStatus to backend — drop OVERDUE (no backend equivalent)
   if (filters.paymentStatus) {
     const s = filters.paymentStatus
-    if (s === 'PAID')                    params.payment_status = 'PAID'
-    else if (s === 'INSTALLMENT' || s === 'PARTIAL') params.payment_status = 'INSTALLMENT'
-    else if (s === 'UNPAID' || s === 'OVERDUE')      params.payment_status = 'UNPAID'
+    if (s === 'PAID')                       params.status = 'PAID'
+    else if (s === 'PARTIAL')               params.status = 'PARTIAL'
+    else if (s === 'UNPAID' || s === 'OVERDUE') params.status = 'UNPAID'
   }
-
   // verificationStatus, division, isInstallment, dueDate range have no
   // backend query param support — omitted; client-side filtering only
 
@@ -245,18 +195,16 @@ export function mapPaymentQueryParams(
 // ─── Pagination adapter ───────────────────────────────────────────
 export function mapPaymentListPagination(
   items: PaymentListItem[],
-  totalPages: number,
-  currentPage: number,
-  pageSize: number
+  pagination: { page: number; limit: number; total: number; totalPages: number }
 ) {
   return {
     success: true,
     data:    items,
     pagination: {
-      page:       currentPage,
-      pageSize,
-      total:      totalPages * pageSize,
-      totalPages,
+      page:       pagination.page,
+      pageSize:   pagination.limit,
+      total:      pagination.total,
+      totalPages: pagination.totalPages,
     },
   }
 }

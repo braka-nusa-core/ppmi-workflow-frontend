@@ -21,9 +21,9 @@ const PAYMENT_TYPE_OPTIONS = [
 // ─── 1. Voucher Information ──────────────────────────────────────
 export function VoucherInfoSection({
   form,
-  linkedInvoiceNumber,
-  linkedQSNumber,
-}: SectionProps & { linkedInvoiceNumber?: string; linkedQSNumber?: string }) {
+  linkedRfiNumber,
+  linkedInsuredName,
+}: SectionProps & { linkedRfiNumber?: string; linkedInsuredName?: string }) {
   const { register, formState: { errors }, watch, setValue } = form
 
   return (
@@ -48,15 +48,15 @@ export function VoucherInfoSection({
         </div>
       </FormField>
 
-      {/* Linked Invoice */}
-      <FormField label="Linked Invoice" required error={errors.invoiceId?.message}>
-        {linkedInvoiceNumber ? (
+      {/* Linked RFI */}
+      <FormField label="Linked RFI" required error={errors.rfiId?.message}>
+        {linkedRfiNumber ? (
           <div className="form-input flex items-center gap-2 bg-[#f7f9fb] cursor-not-allowed">
-            <span className="text-[12px] font-mono text-[#123d6b] font-semibold">{linkedInvoiceNumber}</span>
+            <span className="text-[12px] font-mono text-[#123d6b] font-semibold">{linkedRfiNumber}</span>
             <span className="text-[11px] text-[#7a8fa3] ml-auto">Auto-linked</span>
           </div>
         ) : (
-          <Input placeholder="e.g. INV-2025-0138" error={!!errors.invoiceId} {...register('invoiceId')} />
+          <Input placeholder="e.g. RFI-2026-0138" error={!!errors.rfiId} {...register('rfiId')} />
         )}
       </FormField>
 
@@ -69,11 +69,11 @@ export function VoucherInfoSection({
         />
       </FormField>
 
-      {/* Linked QS (read-only display) */}
-      {linkedQSNumber && (
-        <FormField label="Linked QS" hint="Auto-populated from invoice">
+      {/* Linked Insured (read-only display, from RFI) */}
+      {linkedInsuredName && (
+        <FormField label="Insured" hint="From the linked RFI">
           <div className="form-input flex items-center gap-2 bg-[#f7f9fb] cursor-not-allowed">
-            <span className="text-[12px] font-mono text-[#7a8fa3]">{linkedQSNumber}</span>
+            <span className="text-[12px] text-[#7a8fa3]">{linkedInsuredName}</span>
           </div>
         </FormField>
       )}

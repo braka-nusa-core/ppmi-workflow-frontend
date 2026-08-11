@@ -33,21 +33,11 @@ export function buildVoucherColumns(a: VoucherTableActionsConfig): ColumnDef<Vou
       ),
     },
     {
-      key: 'invoiceNumber', header: 'Invoice Ref.', width: 136,
+      key: 'rfiNumber', header: 'RFI Ref.', width: 136,
       render: (row) => (
-        <a
-          href={`/dashboard/invoice/${row.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="text-[11px] font-medium text-[#3a5068] font-mono hover:text-[#123d6b] hover:underline transition-colors"
-        >
-          {row.invoiceNumber}
-        </a>
-      ),
-    },
-    {
-      key: 'qsNumber', header: 'QS Ref.', width: 120,
-      render: (row) => (
-        <span className="text-[11px] text-[#7a8fa3] font-mono">{row.qsNumber}</span>
+        <span className="text-[11px] font-medium text-[#3a5068] font-mono">
+          {row.rfiNumber}
+        </span>
       ),
     },
     {

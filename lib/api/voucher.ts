@@ -42,8 +42,8 @@ export const fetchVoucherDetail = (id: string): Promise<ApiResponse<VoucherDocum
   }))
 
 /**
- * POST /vouchers
- * @param payload  Frontend form data (camelCase)
+ * POST /vouchers  (per latest Finance API Specification: POST /finance/voucher-invoices)
+ * @param payload  Frontend form data (camelCase) — originates from an RFI via payload.rfiId
  * @param status   'DRAFT' | 'SUBMITTED' — required by backend Zod schema
  */
 export async function createVoucher(
@@ -52,9 +52,6 @@ export async function createVoucher(
 ): Promise<ApiResponse<VoucherDocument>> {
   return post<ApiResponse<VoucherDocument>>(BASE, mapCreateVoucherPayload(payload, status))
 }
-
-export const createVoucherFromInvoice = (invoiceId: string): Promise<ApiResponse<VoucherDocument>> =>
-  post<ApiResponse<VoucherDocument>>(`${BASE}/from-invoice/${invoiceId}`)
 
 /**
  * PATCH /vouchers/:id

@@ -9,9 +9,9 @@ export const bankInfoSchema = z.object({
 })
 
 export const createInvoiceSchema = z.object({
-  // Linked QS
-  qsId:     z.string().min(1, 'Linked QS is required'),
-  division: z.enum(['PI', 'HM'], { required_error: 'Division is required' }),
+  // Linked Voucher Invoice
+  voucherInvoiceId: z.string().min(1, 'Linked Voucher Invoice is required'),
+  division: z.enum(['PI', 'HM', 'CARGO'], { required_error: 'Division is required' }),
 
   // Billing
   insuredName:    z.string().min(1, 'Insured name is required'),

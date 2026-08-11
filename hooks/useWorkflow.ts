@@ -7,10 +7,13 @@ import type { ApiError }  from '@/types/api'
 
 // ─── Stage transition rules ──────────────────────────────────────
 const NEXT_STAGE: Partial<Record<WorkflowStage, WorkflowStage>> = {
-  QS:      'INVOICE',
-  INVOICE: 'VOUCHER',
-  VOUCHER: 'PAYMENT',
-  PAYMENT: 'SHIPMENT',
+  QS:                'POLICY',
+  POLICY:            'RFI',
+  RFI:               'VOUCHER_INVOICE',
+  VOUCHER_INVOICE:   'INVOICE',
+  INVOICE:           'INCOMING_PAYMENT',
+  INCOMING_PAYMENT:  'OUTGOING_PAYMENT',
+  OUTGOING_PAYMENT:  'SHIPMENT',
 }
 
 export function getNextStage(current: WorkflowStage): WorkflowStage | null {

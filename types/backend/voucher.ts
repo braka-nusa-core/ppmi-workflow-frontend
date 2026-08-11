@@ -1,7 +1,10 @@
 /**
  * Raw backend Voucher payload types.
- * Confirmed from backend ZodError: invoice_id, voucher_number, voucher_date,
- * payment_type, status, remarks are required fields.
+ * Historical note: previously confirmed from backend ZodError against the
+ * earlier contract (invoice_id, voucher_number, voucher_date, payment_type,
+ * status, remarks required). Per the latest Finance API Specification,
+ * Voucher Invoice now originates from an RFI, not an Invoice — invoice_id
+ * has been renamed to rfi_id below accordingly (Phase 5).
  * All other fields follow the same snake_case convention as the QS backend.
  *
  * Used ONLY in lib/adapters/voucher.ts — never imported by components.
@@ -33,7 +36,7 @@ export type BackendVoucherPaymentType =
  */
 export interface BackendCreateVoucherPayload {
   // Required
-  invoice_id:      string                      // UUID of linked invoice
+  rfi_id:          string                      // UUID of the source RFI (was invoice_id — Voucher now originates from RFI, not Invoice, per the latest Finance API Specification)
   voucher_number:  string                      // '' — backend auto-generates
   voucher_date:    string                      // ISO DateTime
   payment_type:    BackendVoucherPaymentType
@@ -69,7 +72,7 @@ export type BackendUpdateVoucherPayload = Partial<BackendCreateVoucherPayload>
  */
 export interface BackendVoucherListItem {
   id:             string          // app-generated doc number, e.g. "VCH-20260705-001"
-  invoice_id:     string          // UUID
+  rfi_id:         string          // UUID — was invoice_id (Voucher now originates from RFI)
   voucher_number: string
   voucher_date:   string | Date
   payment_type:   BackendVoucherPaymentType
@@ -82,9 +85,9 @@ export interface BackendVoucherListItem {
   created_at:     string | Date
   updated_at:     string | Date
   deleted_at:     string | Date | null
-  invoice: {
+  rfi: {
     id:             string
-    invoice_number: string
+    request_number: string
   } | null
   bank: {
     id:   string

@@ -58,20 +58,20 @@ function toFrontendCurrency(value: string): 'IDR' | 'USD' {
 }
 
 // ─── Backend InvoiceStatus ↔ frontend InvoiceStatus ──────────────
-// Identical value sets now (both DRAFT/PENDING/VOUCHER/SHIPPED/CLOSED).
-// Kept as explicit pass-through functions so any future divergence
-// is isolated to this one place.
+// Identical value sets now (both DRAFT/ISSUED/UNPAID/PARTIAL/PAID
+// per the latest Finance API Specification). Kept as explicit
+// pass-through functions so any future divergence is isolated here.
 function toFrontendStatus(status: BackendInvoiceStatus): InvoiceStatus {
   return status as InvoiceStatus
 }
 function toBackendStatus(
   status: InvoiceStatus | undefined
 ): BackendInvoiceWritableStatus | undefined {
-  // SHIPPED is server-derived (set by POST /shipments) — never sent by the
-  // client. If a caller somehow passes it, drop it rather than send an
-  // invalid status to the create/update endpoints.
-  if (!status || status === 'SHIPPED') return undefined
-  return status as BackendInvoiceWritableStatus
+  // Only DRAFT/ISSUED are writable via create/update — UNPAID/PARTIAL/
+  // PAID are payment-derived (set once Incoming Payment records exist),
+  // and Cancelled is a separate action only allowed pre-first-payment.
+  if (status !== 'DRAFT' && status !== 'ISSUED') return undefined
+  return status
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -83,7 +83,7 @@ export function mapInvoiceListItem(item: BackendInvoiceListItem): InvoiceListIte
   return {
     id:              item.id,
     docNumber:       item.invoice_number,
-    qsNumber:        item.qs?.id ?? item.qs_id,
+    voucherInvoiceNumber: item.voucher_invoice?.voucher_invoice_number ?? item.voucher_invoice_id,
     insuredName:     item.insured,
     currency:        toFrontendCurrency(item.currency),
     totalAmount:     item.amount,
@@ -92,8 +92,6 @@ export function mapInvoiceListItem(item: BackendInvoiceListItem): InvoiceListIte
     dueDate:         toISO(item.due_date),
     status:          toFrontendStatus(item.status),
     paymentStatus:   'UNPAID',    // not in Invoice response — derive later via Payment module
-    hasVoucher:      false,       // not in Invoice response — derive later via Voucher module
-    voucherNumber:   undefined,
     createdAt:       toISO(item.created_at),
     // division is not present on the backend Invoice model — left
     // undefined; components already type this field as optional-safe
@@ -112,10 +110,13 @@ export function mapInvoiceDetail(item: BackendInvoiceDetail): InvoiceDocument {
     status:          toFrontendStatus(item.status),
     paymentStatus:   'UNPAID',
 
-    qsId:            item.qs_id,
-    qsNumber:        item.qs?.id ?? item.qs_id,
-    voucherId:       undefined,
-    voucherNumber:   undefined,
+    voucherInvoiceId:      item.voucher_invoice_id,
+    voucherInvoiceNumber:  item.voucher_invoice?.voucher_invoice_number ?? item.voucher_invoice_id,
+    policyNumber:          item.voucher_invoice?.policy_number,
+    premium:               item.voucher_invoice?.premium,
+    insuranceCompanyName:  item.voucher_invoice?.insurance_company_name,
+    leaderName:            item.voucher_invoice?.leader_name,
+    memberNames:           item.voucher_invoice?.member_names,
 
     insuredName:     item.insured,
     vesselName:      undefined,
@@ -156,13 +157,13 @@ export function mapInvoiceDetail(item: BackendInvoiceDetail): InvoiceDocument {
  *
  * `invoice_number` is required by the backend but has no source field
  * on CreateInvoicePayload yet — falls back to a generated placeholder
- * until the Create form is updated to collect it (Phase 2/3).
+ * until the Create form is updated to collect it.
  */
 export function mapCreateInvoicePayload(
   payload: CreateInvoicePayload
 ): BackendCreateInvoicePayload {
   return {
-    qs_id:          payload.qsId,
+    voucher_invoice_id: payload.voucherInvoiceId, // was qs_id — Invoice now originates from Voucher Invoice
     invoice_number: `INV-${Date.now()}`, // placeholder — replace once form collects this
     invoice_date:   toOutboundDate(payload.issueDate)!, // YYYY-MM-DD → ISO-8601 DateTime
     due_date:       toOutboundDate(payload.dueDate)!,   // YYYY-MM-DD → ISO-8601 DateTime
@@ -198,6 +199,10 @@ export function mapUpdateInvoicePayload(
  * Map frontend InvoiceFilters (+ pagination/sort) → BackendInvoiceQueryParams.
  * Conversions: pageSize→limit, sortDir→sort_order, sortBy→sort_by
  * (validated against backend's allowed sort fields).
+ * Note: filtering by linked Voucher Invoice (voucher_invoice_id, was
+ * qs_id) is supported by the backend query params but not yet exposed
+ * as a frontend filter field — added to BackendInvoiceQueryParams for
+ * when that's needed.
  */
 export function mapInvoiceQueryParams(
   filters: InvoiceFilters & {

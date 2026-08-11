@@ -1,6 +1,6 @@
 import {
   Wallet, CreditCard, Landmark,
-  Receipt, FileText, Paperclip,
+  ClipboardList, Paperclip,
   StickyNote, ExternalLink,
 } from 'lucide-react'
 import Link           from 'next/link'
@@ -113,43 +113,22 @@ export function VoucherBankInfoPanel({ vch }: { vch: VoucherDocument }) {
   )
 }
 
-// ─── Linked Invoice Panel ────────────────────────────────────────
-export function LinkedInvoicePanel({ vch }: { vch: VoucherDocument }) {
+// ─── Linked RFI Panel ─────────────────────────────────────────────
+export function LinkedRfiPanel({ vch }: { vch: VoucherDocument }) {
   return (
-    <DetailSection icon={Receipt} title="Linked Invoice" id="linked-invoice">
+    <DetailSection icon={ClipboardList} title="Linked Request For Invoice" id="linked-rfi">
       <Link
-        href={`/dashboard/invoice/${vch.invoiceId}`}
+        href={`/dashboard/rfi/${vch.rfiId}`}
         className="flex items-center gap-3 p-3 rounded-lg border border-[#d5e3ef] hover:border-[#93c4e5] hover:bg-[#f7f9fb] transition-colors duration-100 group"
       >
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#e8f3fb] flex-shrink-0">
-          <Receipt size={15} className="text-[#123d6b]" strokeWidth={1.6} />
+          <ClipboardList size={15} className="text-[#123d6b]" strokeWidth={1.6} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-[#18273a] font-mono">{vch.invoiceNumber}</p>
+          <p className="text-[13px] font-semibold text-[#18273a] font-mono">{vch.rfiNumber}</p>
           <p className="text-[11px] text-[#3a5068]">
             {vch.insuredName}{vch.vesselName ? ` · ${vch.vesselName}` : ''}
           </p>
-        </div>
-        <ExternalLink size={13} className="text-[#7a8fa3] group-hover:text-[#123d6b] transition-colors" />
-      </Link>
-    </DetailSection>
-  )
-}
-
-// ─── Linked QS Panel ─────────────────────────────────────────────
-export function LinkedQSMiniPanel({ vch }: { vch: VoucherDocument }) {
-  return (
-    <DetailSection icon={FileText} title="Linked Quotation Sheet" id="linked-qs">
-      <Link
-        href={`/dashboard/qs/${vch.qsId}`}
-        className="flex items-center gap-3 p-3 rounded-lg border border-[#d5e3ef] hover:border-[#93c4e5] hover:bg-[#f7f9fb] transition-colors duration-100 group"
-      >
-        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#edf5fb] flex-shrink-0">
-          <FileText size={15} className="text-[#2d6495]" strokeWidth={1.6} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-[#18273a] font-mono">{vch.qsNumber}</p>
-          <p className="text-[11px] text-[#3a5068]">Original quotation sheet</p>
         </div>
         <ExternalLink size={13} className="text-[#7a8fa3] group-hover:text-[#123d6b] transition-colors" />
       </Link>

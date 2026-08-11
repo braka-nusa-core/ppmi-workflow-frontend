@@ -19,7 +19,7 @@ interface SectionProps { form: InvForm }
 // ]
 
 // ─── 1. Invoice Information ──────────────────────────────────────
-export function InvoiceInfoSection({ form, linkedQSNumber }: SectionProps & { linkedQSNumber?: string }) {
+export function InvoiceInfoSection({ form, linkedVoucherNumber }: SectionProps & { linkedVoucherNumber?: string }) {
   const { register, formState: { errors }, watch, setValue } = form
 
   return (
@@ -45,18 +45,18 @@ export function InvoiceInfoSection({ form, linkedQSNumber }: SectionProps & { li
         </div>
       </FormField>
 
-      {/* Linked QS — read-only if from QS flow */}
-      <FormField label="Linked QS Reference" required error={errors.qsId?.message}>
-        {linkedQSNumber ? (
+      {/* Linked Voucher Invoice — read-only if from Voucher Invoice flow */}
+      <FormField label="Linked Voucher Invoice" required error={errors.voucherInvoiceId?.message}>
+        {linkedVoucherNumber ? (
           <div className="form-input flex items-center gap-2 bg-[#f7f9fb] cursor-not-allowed">
-            <span className="text-[12px] font-mono text-[#123d6b] font-semibold">{linkedQSNumber}</span>
+            <span className="text-[12px] font-mono text-[#123d6b] font-semibold">{linkedVoucherNumber}</span>
             <span className="text-[11px] text-[#7a8fa3] ml-auto">Auto-linked</span>
           </div>
         ) : (
           <Input
-            placeholder="e.g. QS-2025-0143"
-            error={!!errors.qsId}
-            {...register('qsId')}
+            placeholder="e.g. VCH-2026-0143"
+            error={!!errors.voucherInvoiceId}
+            {...register('voucherInvoiceId')}
           />
         )}
       </FormField>

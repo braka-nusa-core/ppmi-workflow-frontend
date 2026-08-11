@@ -42,10 +42,9 @@ export function VoucherDetailHeader({
 
   // Build linked workflow nodes
   const workflowLinks = [
-    { stage: 'QS'      as const, docNumber: vch.qsNumber,      href: `/dashboard/qs/${vch.qsId}`,           isActive: false, isDone: true },
-    { stage: 'INVOICE' as const, docNumber: vch.invoiceNumber,  href: `/dashboard/invoice/${vch.invoiceId}`,  isActive: false, isDone: true },
-    { stage: 'VOUCHER' as const, docNumber: vch.docNumber,      href: `/dashboard/voucher/${vch.id}`,         isActive: true,  isDone: vch.status === 'CLOSED' },
-    ...(vch.paymentId ? [{ stage: 'PAYMENT' as const, docNumber: vch.paymentNumber!, href: `/dashboard/payment/${vch.paymentId}`, isActive: false, isDone: true }] : []),
+    { stage: 'RFI'             as const, docNumber: vch.rfiNumber,     href: `/dashboard/rfi/${vch.rfiId}`,          isActive: false, isDone: true },
+    { stage: 'VOUCHER_INVOICE' as const, docNumber: vch.docNumber,     href: `/dashboard/voucher/${vch.id}`,         isActive: true,  isDone: vch.status === 'CLOSED' },
+    ...(vch.paymentId ? [{ stage: 'INCOMING_PAYMENT' as const, docNumber: vch.paymentNumber!, href: `/dashboard/payment/${vch.paymentId}`, isActive: false, isDone: true }] : []),
   ]
 
   return (

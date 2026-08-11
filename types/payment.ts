@@ -1,139 +1,60 @@
 import type { Division } from './workflow'
 
+// ─── Payment method ───────────────────────────────────────────────
+export type PaymentMethod = 'BANK_TRANSFER' | 'RTGS' | 'SWIFT' | 'CHEQUE' | 'CASH'
+
+// ─── Verification status (frontend-only concept — not part of the
+// documented Incoming Payment API) ─────────────────────────────────
+export type PaymentVerificationStatus = 'UNVERIFIED' | 'VERIFIED' | 'FLAGGED'
+
 // ─── Payment-specific status ─────────────────────────────────────
+// Aligned with the latest Finance API Specification's documented
+// Incoming Payment status flow: UNPAID → PARTIAL → PAID.
 export type PaymentStatus =
   | 'UNPAID'
-  | 'INSTALLMENT'   // backend canonical value for partial payment
+  | 'PARTIAL'
   | 'PAID'
-  // Frontend-derived display values (not in backend enum):
-  | 'PARTIAL'       // legacy alias shown in UI; mapped from INSTALLMENT
-  | 'OVERDUE'       // computed: UNPAID/INSTALLMENT + dueDate < today
+  // Frontend-computed convenience (not part of the backend contract):
+  | 'OVERDUE'   // UNPAID/PARTIAL + dueDate < today
 
-export type PaymentVerificationStatus =
-  | 'UNVERIFIED'
-  | 'VERIFIED'
-  | 'FLAGGED'
-
-export type PaymentMethod =
-  | 'BANK_TRANSFER'
-  | 'RTGS'
-  | 'SWIFT'
-  | 'CHEQUE'
-  | 'CASH'
-
-// ─── Installment record ──────────────────────────────────────────
+// ─── Installment (frontend-side grouping concept — see
+// lib/adapters/payment.ts header note: the backend Payment model is
+// flat, this sub-array is always empty from the adapter today) ────
 export interface PaymentInstallment {
-  id:                 string
-  paymentId:          string
-  installmentNumber:  number
-  dueDate:            string
-  amount:             number
-  paidAmount:         number
-  paidDate?:          string
-  paymentMethod?:     PaymentMethod
-  referenceNumber?:   string
-  status:             PaymentStatus
-  verifiedBy?:        string
-  verifiedAt?:        string
-  notes?:             string
+  id:               string
+  installmentNumber: number
+  dueDate:          string
+  paidDate?:        string
+  amount:           number
+  paidAmount?:      number
+  status:           PaymentStatus
+  paymentMethod?:   PaymentMethod
+  referenceNumber?: string
 }
 
-// ─── Payment activity ────────────────────────────────────────────
-export type PaymentActivityType =
-  | 'created'
-  | 'updated'
-  | 'payment_received'
-  | 'installment_recorded'
-  | 'overdue_flagged'
-  | 'verified'
-  | 'flagged'
-  | 'shipment_generated'
-  | 'note_added'
-
+// ─── Activity log entry (frontend-only concept — always empty from
+// the adapter, no history endpoint documented) ─────────────────────
 export interface PaymentActivity {
   id:          string
-  type:        PaymentActivityType
-  description: string
-  actor:       string
-  timestamp:   string
+  action:      string
+  description?: string
+  performedBy: string
+  createdAt:   string
   meta?: {
-    amount?:            number
-    currency?:          'IDR' | 'USD'
+    fromStatus?:        string
+    toStatus?:          string
     installmentNumber?: number
-    referenceNumber?:   string
-    fromStatus?:        PaymentStatus
-    toStatus?:          PaymentStatus
   }
 }
 
-// ─── Full Payment Document ───────────────────────────────────────
-export interface PaymentDocument {
-  id:                  string
-  docNumber:           string
-  division:            Division
-  paymentStatus:       PaymentStatus
-  verificationStatus:  PaymentVerificationStatus
-
-  // Linked chain
-  voucherId:           string
-  voucherNumber:       string
-  invoiceId:           string
-  invoiceNumber:       string
-  qsId:                string
-  qsNumber:            string
-  shipmentId?:         string
-  shipmentNumber?:     string
-
-  // Insured
-  insuredName:         string
-  vesselName?:         string
-
-  // Financial
-  currency:            'IDR' | 'USD'
-  totalAmount:         number
-  paidAmount:          number
-  remainingAmount:     number
-
-  // Dates
-  dueDate:             string
-  paidDate?:           string
-
-  // Installments
-  isInstallment:       boolean
-  installmentCount?:   number
-  installments?:       PaymentInstallment[]
-
-  // Last payment
-  lastPaymentDate?:    string
-  lastPaymentAmount?:  number
-  lastPaymentMethod?:  PaymentMethod
-  lastReferenceNumber?:string
-
-  // Finance verification
-  verifiedBy?:         string
-  verifiedAt?:         string
-  verificationNotes?:  string
-  flagReason?:         string
-
-  // Notes
-  internalNotes?:      string
-
-  // Meta
-  createdBy:           string
-  createdAt:           string
-  updatedBy?:          string
-  updatedAt:           string
-  activity?:           PaymentActivity[]
-}
-
-// ─── List item (table row) ───────────────────────────────────────
+// ─── List item (table row) ────────────────────────────────────────
 export interface PaymentListItem {
   id:                 string
   docNumber:          string
   division:           Division
-  voucherNumber:      string
   invoiceId:          string
   invoiceNumber:      string
+  voucherNumber?:     string
   insuredName:        string
   vesselName?:        string
   currency:           'IDR' | 'USD'
@@ -150,45 +71,85 @@ export interface PaymentListItem {
   createdAt:          string
 }
 
-// ─── Record payment payload ──────────────────────────────────────
-export interface RecordPaymentPayload {
-  paymentId:       string
-  paidAmount:      number
-  paidDate:        string
-  paymentMethod:   PaymentMethod
-  referenceNumber?:string
-  notes?:          string
+// ─── Full document ────────────────────────────────────────────────
+export interface PaymentDocument {
+  id:                  string
+  docNumber:           string
+  division:            Division
+  paymentStatus:       PaymentStatus
+  verificationStatus:  PaymentVerificationStatus
+
+  // Origin (required) — Payment now originates from Invoice, per the
+  // latest Finance API Specification (was voucherId under the earlier
+  // contract).
+  invoiceId:           string
+  invoiceNumber:       string
+
+  // Upstream context (optional display-only — not guaranteed present
+  // on the Payment response; sourced transitively via Invoice if needed)
+  voucherId?:          string
+  voucherNumber?:      string
+  qsId?:               string
+  qsNumber?:           string
+  shipmentId?:         string
+  shipmentNumber?:     string
+
+  insuredName:         string
+  vesselName?:         string
+  currency:            'IDR' | 'USD'
+
+  totalAmount:         number
+  paidAmount:          number
+  remainingAmount:     number
+
+  dueDate:             string
+  paidDate?:           string
+
+  isInstallment:       boolean
+  installments?:       PaymentInstallment[]
+
+  lastPaymentDate?:    string
+  lastPaymentAmount?:  number
+  lastPaymentMethod?:  PaymentMethod
+  lastReferenceNumber?: string
+
+  internalNotes?:      string
+
+  createdBy:           string
+  createdAt:           string
+  updatedAt:           string
+  activity:            PaymentActivity[]
 }
 
-// ─── Record installment payload ──────────────────────────────────
-export interface RecordInstallmentPayload {
-  installmentId:   string
-  paidAmount:      number
-  paidDate:        string
-  paymentMethod:   PaymentMethod
-  referenceNumber?:string
-  notes?:          string
+// ─── Record payment payload ──────────────────────────────────────
+// Matches POST /finance/ar/payments per the latest Finance API
+// Specification: { invoiceId, paymentDate, amount, paymentMethod,
+// bankAccount, referenceNumber, notes }.
+export interface RecordPaymentPayload {
+  invoiceId:        string
+  paidAmount:       number
+  paidDate:         string
+  paymentMethod:    PaymentMethod
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
 }
 
 // ─── Create payment payload ──────────────────────────────────────
-export interface CreatePaymentPayload {
-  voucherId:         string
-  installmentNumber: number
-  paymentDate?:      string
-  dueDate:           string
-  paidAmount:        number
-  remainingAmount:   number
-  remarks:           string
-  paymentProof?:     string
-}
+// Same shape as RecordPaymentPayload — a "payment" IS one record
+// against an invoice (no parent/child installment structure on the
+// backend). installmentNumber/dueDate/remainingAmount are no longer
+// client-supplied: remaining balance is computed server-side, and
+// installments are implicit (sequenced by repeated POSTs against the
+// same invoiceId), per the latest spec.
+export type CreatePaymentPayload = RecordPaymentPayload
 
-// ─── Filters ─────────────────────────────────────────────────────
+// ─── Filters ───────────────────────────────────────────────────────
 export interface PaymentFilters {
-  search?:            string
-  paymentStatus?:     PaymentStatus | ''
-  verificationStatus?:PaymentVerificationStatus | ''
-  division?:          Division | ''
-  isInstallment?:     'true' | 'false' | ''
-  dueDateFrom?:       string
-  dueDateTo?:         string
-}
+  search?:              string
+  paymentStatus?:       PaymentStatus
+  verificationStatus?:  PaymentVerificationStatus
+  division?:            Division
+  isInstallment?:       boolean
+  dueDate?:             string
+} 

@@ -1,23 +1,23 @@
 'use client'
 
-import { Check, FileText, Receipt, Wallet, CreditCard, Package } from 'lucide-react'
+import {
+  Check, FileText, Shield, ClipboardList, Wallet,
+  Receipt, ArrowDownCircle, ArrowUpCircle, Package,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { WORKFLOW_STAGES, STAGE_CONFIG, type WorkflowStage } from '@/types/workflow'
 
-// ─── Workflow Stage Config ───────────────────────────────────────
-export type WorkflowStage = 'QS' | 'INVOICE' | 'VOUCHER' | 'PAYMENT' | 'SHIPMENT'
-
-const STAGES: {
-  key: WorkflowStage
-  label: string
-  shortLabel: string
-  icon: React.ElementType
-}[] = [
-  { key: 'QS',       label: 'Quotation Sheet', shortLabel: 'QS',       icon: FileText  },
-  { key: 'INVOICE',  label: 'Invoice',          shortLabel: 'Invoice',  icon: Receipt   },
-  { key: 'VOUCHER',  label: 'Voucher',           shortLabel: 'Voucher',  icon: Wallet    },
-  { key: 'PAYMENT',  label: 'Payment',           shortLabel: 'Payment',  icon: CreditCard },
-  { key: 'SHIPMENT', label: 'Shipment',          shortLabel: 'Shipment', icon: Package   },
-]
+// Presentational icon mapping only — labels/order come from types/workflow.ts
+const STAGE_ICONS: Record<WorkflowStage, React.ElementType> = {
+  QS:               FileText,
+  POLICY:           Shield,
+  RFI:              ClipboardList,
+  VOUCHER_INVOICE:  Wallet,
+  INVOICE:          Receipt,
+  INCOMING_PAYMENT: ArrowDownCircle,
+  OUTGOING_PAYMENT: ArrowUpCircle,
+  SHIPMENT:         Package,
+}
 
 type StageState = 'completed' | 'current' | 'upcoming'
 
@@ -25,8 +25,8 @@ function getStageState(
   stageKey: WorkflowStage,
   currentStage: WorkflowStage
 ): StageState {
-  const stageIdx = STAGES.findIndex((s) => s.key === stageKey)
-  const currentIdx = STAGES.findIndex((s) => s.key === currentStage)
+  const stageIdx = WORKFLOW_STAGES.indexOf(stageKey)
+  const currentIdx = WORKFLOW_STAGES.indexOf(currentStage)
 
   if (stageIdx < currentIdx)  return 'completed'
   if (stageIdx === currentIdx) return 'current'
@@ -55,16 +55,19 @@ export function WorkflowStepper({
       compact ? 'gap-0' : 'gap-0',
       className
     )}>
-      {STAGES.map((stage, idx) => {
+      {WORKFLOW_STAGES.map((stageKey, idx) => {
+        const stage = STAGE_CONFIG[stageKey]
+        const Icon = STAGE_ICONS[stageKey]
+
         const state = completedStages
-          ? completedStages.includes(stage.key)
+          ? completedStages.includes(stageKey)
             ? 'completed'
-            : stage.key === currentStage
+            : stageKey === currentStage
               ? 'current'
               : 'upcoming'
-          : getStageState(stage.key, currentStage)
+          : getStageState(stageKey, currentStage)
 
-        const isLast = idx === STAGES.length - 1
+        const isLast = idx === WORKFLOW_STAGES.length - 1
         const isClickable = !!onStageClick
 
         return (
@@ -97,7 +100,7 @@ export function WorkflowStepper({
                 {state === 'completed' ? (
                   <Check size={compact ? 12 : 14} strokeWidth={2.5} />
                 ) : (
-                  <stage.icon size={compact ? 12 : 14} />
+                  <Icon size={compact ? 12 : 14} />
                 )}
               </div>
 
@@ -137,7 +140,8 @@ interface StageBadgeProps {
 }
 
 export function StageBadge({ stage, className }: StageBadgeProps) {
-  const stageConfig = STAGES.find((s) => s.key === stage)
+  const stageConfig = STAGE_CONFIG[stage]
+  const Icon = STAGE_ICONS[stage]
   if (!stageConfig) return null
 
   return (
@@ -146,7 +150,7 @@ export function StageBadge({ stage, className }: StageBadgeProps) {
       'bg-[#e8f4fd] text-[#1e4a70] border border-[#b3c9df]',
       className
     )}>
-      <stageConfig.icon size={10} />
+      <Icon size={10} />
       {stageConfig.shortLabel}
     </span>
   )

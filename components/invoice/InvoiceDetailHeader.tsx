@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Pencil, Wallet, Download, Send, XCircle, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, Download, Send, XCircle, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn }        from '@/lib/utils'
 import { Button }    from '@/components/ui/Button'
@@ -12,10 +12,8 @@ import type { InvoiceDocument } from '@/types/invoice'
 interface InvoiceDetailHeaderProps {
   invoice:        InvoiceDocument
   canEdit:        boolean
-  canCreate:      boolean
   onMarkSent?:    () => void
   onIssue?:       () => void
-  onVoucher?:     () => void
   onDownload?:    () => void
   onCancel?:      () => void
 }
@@ -23,27 +21,25 @@ interface InvoiceDetailHeaderProps {
 export function InvoiceDetailHeader({
   invoice,
   canEdit,
-  canCreate,
   onMarkSent,
   onIssue,
-  onVoucher,
   onDownload,
   onCancel,
 }: InvoiceDetailHeaderProps) {
   const router = useRouter()
 
   const showIssue   = canEdit   && invoice.status === 'DRAFT'
-  const showSent    = canEdit   && invoice.status === 'PENDING'
-  const showVoucher = canCreate && invoice.status === 'PENDING' && !invoice.voucherId
-  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
-  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
+  const showSent    = canEdit   && invoice.status === 'ISSUED'
+  const showEdit    = canEdit   && invoice.status === 'DRAFT'
+  const showCancel  = canEdit   && invoice.status === 'DRAFT'
 
-  // Build linked workflow nodes
+  // Build linked workflow nodes: Voucher Invoice (predecessor, always
+  // present — Invoice now originates from it) → this Invoice.
   const workflowLinks = [
     {
-      stage:    'QS' as const,
-      docNumber: invoice.qsNumber,
-      href:     `/dashboard/qs/${invoice.qsId}`,
+      stage:    'VOUCHER_INVOICE' as const,
+      docNumber: invoice.voucherInvoiceNumber,
+      href:     `/dashboard/voucher/${invoice.voucherInvoiceId}`,
       isActive: false,
       isDone:   true,
     },
@@ -52,15 +48,8 @@ export function InvoiceDetailHeader({
       docNumber: invoice.docNumber,
       href:     `/dashboard/invoice/${invoice.id}`,
       isActive: true,
-      isDone:   invoice.status === 'CLOSED',
+      isDone:   invoice.status === 'PAID',
     },
-    ...(invoice.voucherId ? [{
-      stage:    'VOUCHER' as const,
-      docNumber: invoice.voucherNumber!,
-      href:     `/dashboard/voucher/${invoice.voucherId}`,
-      isActive: false,
-      isDone:   true,
-    }] : []),
   ]
 
   return (
@@ -134,16 +123,6 @@ export function InvoiceDetailHeader({
               className="text-[#123d6b]"
             >
               Mark as Sent
-            </Button>
-          )}
-          {showVoucher && (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Wallet size={12} />}
-              onClick={onVoucher}
-            >
-              Generate Voucher
             </Button>
           )}
           <Button

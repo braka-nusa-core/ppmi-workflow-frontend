@@ -10,6 +10,7 @@ import { formatCurrency, formatNumber } from '@/lib/format'
 import type { DivisionSummary } from '@/types/overview'
 import type { Division } from '@/types/workflow'
 import Link from 'next/link'
+import { ROUTES } from '@/config/routes'
 
 // ─── Single metric row inside division card ──────────────────────
 interface DivMetricProps {
@@ -59,7 +60,7 @@ const DIVISION_CONFIG: Record<Division, {
     accent:    '#123d6b',
     lightBg:   '#e8f3fb',
     border:    '#93c4e5',
-    href:      '/dashboard/pi/qs',
+    href:      ROUTES.qs.list,
   },
   HM: {
     label:     'H&M',
@@ -67,7 +68,15 @@ const DIVISION_CONFIG: Record<Division, {
     accent:    '#1a5c38',
     lightBg:   '#eaf6f0',
     border:    '#96d6b4',
-    href:      '/dashboard/hm/qs',
+    href:      ROUTES.qs.list,
+  },
+  CARGO: {
+    label:     'Cargo',
+    fullLabel: 'Cargo',
+    accent:    '#7a4f00',
+    lightBg:   '#fff8e6',
+    border:    '#fcd97a',
+    href:      ROUTES.qs.list,
   },
 }
 

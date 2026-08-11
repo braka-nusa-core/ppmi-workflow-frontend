@@ -15,25 +15,33 @@ import {
   mapUpdatePaymentPayload,
 } from '@/lib/adapters/payment'
 
-const BASE = '/payments'
+/**
+ * Incoming Payment (AR) API layer, per the latest Finance API
+ * Specification (Source of Truth) — Payment now originates from
+ * Invoice, not Voucher (Phase 7).
+ *
+ * Path aligned to the spec's documented endpoint (/finance/ar/payments),
+ * unlike Voucher/Invoice (Phase 5/6) which kept their legacy paths —
+ * because this module's entire payload contract changed here (origin,
+ * envelope, every field), not just the origin field, so there's no
+ * partial legacy contract left worth preserving path-compatibility
+ * with. See Phase 7 report for the full reasoning.
+ */
+const BASE = '/finance/ar/payments'
 
 // ─── List ─────────────────────────────────────────────────────────
+/** GET /finance/ar/payments */
 export async function fetchPaymentList(
-  filters: PaymentFilters & {
-    page?:     number
-    pageSize?: number
-    sortBy?:   string
-    sortDir?:  'asc' | 'desc'
-  } = {}
+  filters: PaymentFilters & { page?: number } = {}
 ): Promise<PaginatedResponse<PaymentListItem>> {
-  const params = mapPaymentQueryParams(filters)
+  const params   = mapPaymentQueryParams(filters)
   const envelope = await get<BackendPaymentListEnvelope>(BASE, { params })
-  const items    = envelope.data.items.map(mapPaymentListItem)
-  const pageSize = filters.pageSize ?? 25
-  return mapPaymentListPagination(items, envelope.data.total_pages, envelope.data.current_page, pageSize)
+  const items    = envelope.data.map(mapPaymentListItem)
+  return mapPaymentListPagination(items, envelope.pagination)
 }
 
 // ─── Detail ───────────────────────────────────────────────────────
+/** GET /finance/ar/payments/:id */
 export async function fetchPaymentDetail(id: string): Promise<PaymentDocument> {
   const envelope = await get<BackendPaymentDetailEnvelope>(`${BASE}/${id}`)
   return mapPaymentDetail(envelope.data)
@@ -41,86 +49,67 @@ export async function fetchPaymentDetail(id: string): Promise<PaymentDocument> {
 
 // ─── Create ───────────────────────────────────────────────────────
 /**
- * POST /payments
- * Creates a new payment installment record linked to a Voucher.
- * The backend stores each installment as a separate Payment row.
- *
- * @param payload  Frontend form data (camelCase) — mapped to the
- *                 backend's snake_case contract via mapCreatePaymentPayload,
- *                 same pattern as createQS()/createVoucher().
+ * POST /finance/ar/payments
+ * Creates a new payment record against an invoice. Each call is one
+ * payment entry (full or partial) — the backend computes the
+ * resulting remaining balance and status (UNPAID → PARTIAL → PAID)
+ * from Total Invoice - Total Payment, per the latest spec. There is
+ * no client-supplied installment number, due date, or remaining
+ * amount on create.
  */
 export async function createPayment(payload: {
-  voucherId:         string
-  installmentNumber: number
-  paymentDate?:      string | null
-  dueDate:           string
-  paidAmount:        number
-  remainingAmount:   number
-  paymentStatus:     'UNPAID' | 'INSTALLMENT' | 'PAID'
-  remarks:           string
-  paymentProof?:     string
+  invoiceId:        string
+  paidDate:         string
+  paidAmount:       number
+  paymentMethod:    string
+  bankAccount?:     string
+  referenceNumber?: string
+  notes?:           string
 }): Promise<PaymentDocument> {
-  const envelope = await post<BackendPaymentMutationEnvelope>(BASE, mapCreatePaymentPayload(payload))
-  return mapPaymentDetail(envelope.data)
+  const envelope = await post<BackendPaymentMutationEnvelope>(
+    BASE,
+    mapCreatePaymentPayload(payload)
+  )
+  // Create response per spec only returns { status, remainingBalance },
+  // not the full record — refetch detail for the complete document.
+  return fetchPaymentDetail(envelope.data.id)
 }
 
 // ─── Update ───────────────────────────────────────────────────────
 /**
- * PATCH /payments/:id  (NOT PUT)
- * Updates one or more fields on an existing payment record.
- * Used for: recording payment receipt (update paid_amount, remaining_amount, payment_status)
- *           updating due date, remarks, etc.
- *
- * @param payload  Frontend camelCase fields — mapped to the backend's
- *                 snake_case contract via mapUpdatePaymentPayload, same
- *                 pattern as createPayment(). This is also where
- *                 paymentDate/dueDate get converted to full ISO-8601 via
- *                 dateInputToISO — callers must NOT build the raw
- *                 backend payload (with payment_date as bare YYYY-MM-DD)
- *                 themselves.
+ * PATCH /finance/ar/payments/:id
+ * NOTE: not explicitly documented in the latest Finance API
+ * Specification (only Create/List/Detail/Export Receipt are listed
+ * for Incoming Payment). Kept as a defensive capability, consistent
+ * with the existing architecture, but flagged as unconfirmed.
  */
 export async function updatePayment(
   id: string,
   payload: {
     paidAmount?:      number
-    remainingAmount?: number
-    paymentStatus?:   PaymentListItem['paymentStatus']
-    paymentDate?:     string | null
-    dueDate?:         string
-    remarks?:         string
+    paidDate?:        string
+    paymentMethod?:   string
+    bankAccount?:     string
+    referenceNumber?: string
+    notes?:           string
   }
 ): Promise<PaymentDocument> {
   const envelope = await patch<BackendPaymentMutationEnvelope>(`${BASE}/${id}`, mapUpdatePaymentPayload(payload))
-  return mapPaymentDetail(envelope.data)
+  return fetchPaymentDetail(envelope.data.id)
 }
 
 // ─── Delete ───────────────────────────────────────────────────────
 /**
- * DELETE /payments/:id
- * Hard-deletes the payment record (permanent, no soft-delete on Payment model).
+ * DELETE /finance/ar/payments/:id
+ * NOTE: not explicitly documented in the latest spec either — kept
+ * for the same reason as updatePayment above.
  */
 export async function deletePayment(id: string): Promise<void> {
-  await del<{ success: boolean; status_code: number }>(`${BASE}/${id}`)
+  await del<{ success: boolean }>(`${BASE}/${id}`)
 }
 
-// ─── Convenience: record a payment receipt ─────────────────────────
-/**
- * Record that a payment has been received.
- * Maps to PATCH /payments/:id with updated amounts and status.
- */
-export async function recordPaymentReceipt(
-  id: string,
-  paidAmount:      number,
-  remainingAmount: number,
-  paymentDate:     string,
-  remarks?:        string
-): Promise<PaymentDocument> {
-  const status = remainingAmount <= 0 ? 'PAID' : 'INSTALLMENT'
-  return updatePayment(id, {
-    paidAmount,
-    remainingAmount,
-    paymentDate,
-    paymentStatus: status,
-    ...(remarks ? { remarks } : {}),
-  })
+// ─── Export Receipt ───────────────────────────────────────────────
+/** GET /finance/ar/payments/:id/receipt */
+export function fetchPaymentReceiptUrl(id: string): string {
+  return `${BASE}/${id}/receipt`
 }

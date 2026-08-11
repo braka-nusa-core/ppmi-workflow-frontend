@@ -16,10 +16,8 @@ import { Button }                from '@/components/ui/Button'
 interface InvoiceDetailSidebarProps {
   invoice:     InvoiceDocument
   canEdit:     boolean
-  canCreate:   boolean
   onIssue?:    () => void
   onMarkSent?: () => void
-  onVoucher?:  () => void
   onDownload?: () => void
   onCancel?:   () => void
   onEdit?:     () => void
@@ -28,10 +26,8 @@ interface InvoiceDetailSidebarProps {
 export function InvoiceDetailSidebar({
   invoice,
   canEdit,
-  canCreate,
   onIssue,
   onMarkSent,
-  onVoucher,
   onDownload,
   onCancel,
   onEdit,
@@ -44,10 +40,9 @@ export function InvoiceDetailSidebar({
     : 0
 
   const showIssue   = canEdit   && invoice.status === 'DRAFT'
-  const showSent    = canEdit   && invoice.status === 'PENDING'
-  const showVoucher = canCreate && invoice.status === 'PENDING' && !invoice.voucherId
-  const showEdit    = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
-  const showCancel  = canEdit   && (invoice.status === 'DRAFT' || invoice.status === 'PENDING')
+  const showSent    = canEdit   && invoice.status === 'ISSUED'
+  const showEdit    = canEdit   && invoice.status === 'DRAFT'
+  const showCancel  = canEdit   && invoice.status === 'DRAFT'
 
   return (
     <aside className="flex flex-col gap-4 w-[264px] flex-shrink-0">
@@ -94,7 +89,7 @@ export function InvoiceDetailSidebar({
       </div>
 
       {/* Quick Actions */}
-      {(showIssue || showSent || showVoucher || showEdit || showCancel) && (
+      {(showIssue || showSent || showEdit || showCancel) && (
         <div className="card">
           <div className="px-4 py-3" style={{ borderBottom: '1px solid #f0f4f7' }}>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7a8fa3]">Actions</p>
@@ -113,11 +108,6 @@ export function InvoiceDetailSidebar({
             {showSent && (
               <Button variant="secondary" size="sm" icon={<Send size={12} />} className="w-full justify-start text-[#123d6b]" onClick={onMarkSent}>
                 Mark as Sent
-              </Button>
-            )}
-            {showVoucher && (
-              <Button variant="primary" size="sm" icon={<Wallet size={12} />} className="w-full justify-start" onClick={onVoucher}>
-                Generate Voucher
               </Button>
             )}
             <Button variant="ghost" size="sm" icon={<Download size={12} />} className="w-full justify-start text-[#7a8fa3]" onClick={onDownload}>
@@ -175,25 +165,23 @@ export function InvoiceDetailSidebar({
         </div>
       </div>
 
-      {/* Linked Voucher */}
-      {invoice.voucherId && (
-        <div className="card card-body">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7a8fa3] mb-3">Linked Documents</p>
-          <Link
-            href={`/dashboard/voucher/${invoice.voucherId}`}
-            className="flex items-center gap-2.5 p-2.5 rounded-md border border-[#d5e3ef] hover:border-[#93c4e5] hover:bg-[#f7f9fb] transition-colors duration-100"
-          >
-            <div className="flex items-center justify-center w-6 h-6 rounded bg-[#eaf6f0] flex-shrink-0">
-              <Wallet size={11} className="text-[#1a5c38]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-[#18273a]">{invoice.voucherNumber}</p>
-              <p className="text-[10px] text-[#1a5c38]">Voucher · Generated</p>
-            </div>
-            <ArrowRight size={11} className="text-[#7a8fa3]" />
-          </Link>
-        </div>
-      )}
+      {/* Linked Voucher Invoice */}
+      <div className="card card-body">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7a8fa3] mb-3">Linked Documents</p>
+        <Link
+          href={`/dashboard/voucher/${invoice.voucherInvoiceId}`}
+          className="flex items-center gap-2.5 p-2.5 rounded-md border border-[#d5e3ef] hover:border-[#93c4e5] hover:bg-[#f7f9fb] transition-colors duration-100"
+        >
+          <div className="flex items-center justify-center w-6 h-6 rounded bg-[#eaf6f0] flex-shrink-0">
+            <Wallet size={11} className="text-[#1a5c38]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-[#18273a]">{invoice.voucherInvoiceNumber}</p>
+            <p className="text-[10px] text-[#1a5c38]">Voucher Invoice · Origin</p>
+          </div>
+          <ArrowRight size={11} className="text-[#7a8fa3]" />
+        </Link>
+      </div>
 
       {/* Record Info */}
       <div className="card card-body flex flex-col gap-3">

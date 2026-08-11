@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import type { Division } from '@/types/workflow'
 
 // ─── Status Badge (workflow-aware) ──────────────────────────────
 type BadgeVariant =
@@ -91,20 +92,30 @@ export function StatusBadge({ status, dot = true, className }: StatusBadgeProps)
 
 // ─── Division Badge ─────────────────────────────────────────────
 interface DivisionBadgeProps {
-  division: 'PI' | 'HM'
+  division: Division
   className?: string
+}
+
+const DIVISION_STYLES: Record<Division, string> = {
+  PI:    'bg-[#e8f4fd] text-[#1e4a70] border-[#b3c9df]',
+  HM:    'bg-[#e8f7ee] text-[#1a6b3a] border-[#a3d9b8]',
+  CARGO: 'bg-[#fdf3e7] text-[#8a5a1e] border-[#e8c896]',
+}
+
+const DIVISION_LABELS: Record<Division, string> = {
+  PI:    'P&I',
+  HM:    'H&M',
+  CARGO: 'Cargo',
 }
 
 export function DivisionBadge({ division, className }: DivisionBadgeProps) {
   return (
     <span className={cn(
       'inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border',
-      division === 'PI'
-        ? 'bg-[#e8f4fd] text-[#1e4a70] border-[#b3c9df]'
-        : 'bg-[#e8f7ee] text-[#1a6b3a] border-[#a3d9b8]',
+      DIVISION_STYLES[division],
       className
     )}>
-      {division === 'PI' ? 'P&I' : 'H&M'}
+      {DIVISION_LABELS[division]}
     </span>
   )
 }

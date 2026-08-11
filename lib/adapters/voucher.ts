@@ -48,7 +48,7 @@ function toFrontendVoucherStatus(status: BackendVoucherStatus): VoucherStatus {
 /**
  * Map a single BackendVoucherListItem → VoucherListItem (one table row).
  *
- * The backend's listVouchers()/getVoucher() include only `invoice` (id,
+ * The backend's listVouchers()/getVoucher() include only `rfi` (id,
  * invoice_number) and `bank` (id, name) — there is no `qs`, `payments`, or
  * `division` relation on this response. Fields with no backend source are
  * defaulted below rather than left to throw, consistent with how
@@ -60,8 +60,7 @@ export function mapVoucherListItem(item: BackendVoucherListItem): VoucherListIte
     id:             item.id,
     docNumber:      item.id,                       // id IS the doc number (VCH-YYYYMMDD-NNN)
     division:       'PI',                           // Not in backend response — no division relation on Voucher
-    invoiceNumber:  item.invoice?.invoice_number ?? '',
-    qsNumber:       '',                              // Not in backend response — no qs relation on Voucher
+    rfiNumber:      item.rfi?.request_number ?? '',
     insuredName:    '',                              // Not in backend response — no qs/invoice insured data included
     paymentType:    item.payment_type,
     bankName:       item.bank?.name ?? '',
@@ -83,14 +82,12 @@ export function mapVoucherDetail(item: BackendVoucherDetail): VoucherDocument {
     status:         toFrontendVoucherStatus(item.status),
 
     // Linked documents
-    invoiceId:      item.invoice_id,
-    invoiceNumber:  item.invoice?.invoice_number ?? '',
-    qsId:           '',                              // Not in backend response — no qs relation on Voucher
-    qsNumber:       '',                              // Not in backend response
+    rfiId:          item.rfi_id,
+    rfiNumber:      item.rfi?.request_number ?? '',
     paymentId:      undefined,                       // Not in backend response — payments relation not included
     paymentNumber:  undefined,
 
-    // Insured info (from invoice) — not available on this response
+    // Insured info (from RFI/policy) — not available on this response
     insuredName:    '',
     vesselName:     undefined,
 
@@ -158,8 +155,8 @@ export function mapCreateVoucherPayload(
   status: BackendVoucherStatus = 'DRAFT',
 ): BackendCreateVoucherPayload {
   return {
-    // Required fields confirmed from backend ZodError
-    invoice_id:     payload.invoiceId,
+    // Required fields
+    rfi_id:         payload.rfiId,               // was invoice_id — Voucher now originates from an approved RFI
     voucher_number: payload.voucherNumber,       // user-entered; backend does not auto-generate this
     voucher_date:   new Date().toISOString(),    // today as ISO DateTime
     payment_type:   payload.paymentType,
@@ -196,7 +193,7 @@ export function mapUpdateVoucherPayload(
 ): BackendUpdateVoucherPayload {
   const result: BackendUpdateVoucherPayload = {}
 
-  if (payload.invoiceId    != null) result.invoice_id     = payload.invoiceId
+  if (payload.rfiId        != null) result.rfi_id         = payload.rfiId
   if (payload.paymentType  != null) result.payment_type   = payload.paymentType
   if (payload.status       != null) result.status         = payload.status
   if (payload.currency     != null) result.currency       = payload.currency

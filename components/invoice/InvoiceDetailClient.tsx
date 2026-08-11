@@ -11,7 +11,8 @@ import {
   BillingInfoPanel,
   PaymentSummaryPanel,
   BankInfoPanel,
-  LinkedQSPanel,
+  LinkedVoucherPanel,
+  AutoFillTechnicalInfoPanel,
   InvoiceAttachmentsPanel,
   InvoiceNotesPanel,
 } from './InvoiceDetailInfoPanels'
@@ -22,8 +23,7 @@ import { useModal }               from '@/hooks/useModal'
 import { useRole }                from '@/hooks/useRole'
 import {
   fetchInvoiceDetail,
-  submitInvoice,
-  closeInvoice,
+  issueInvoice,
   deleteInvoice,
 } from '@/lib/api/invoice'
 
@@ -32,11 +32,10 @@ interface InvoiceDetailClientProps { id: string }
 export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
   const router      = useRouter()
   const qc          = useQueryClient()
-  const { canEdit, canCreate } = useRole()
+  const { canEdit } = useRole()
 
   const issueModal   = useModal<unknown>()
   const sentModal    = useModal<unknown>()
-  const voucherModal = useModal<unknown>()
   const cancelModal  = useModal<unknown>()
 
   const [isProcessing, setProcessing] = useState(false)
@@ -89,10 +88,8 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
       <InvoiceDetailHeader
         invoice={invoice}
         canEdit={canEdit}
-        canCreate={canCreate}
         onIssue={()    => issueModal.open()}
         onMarkSent={() => sentModal.open()}
-        onVoucher={()  => voucherModal.open()}
         onCancel={()   => cancelModal.open()}
         onDownload={()  => { /* no backend endpoint for PDF — intentionally non-functional */ }}
       />
@@ -101,10 +98,11 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
       <div className="flex gap-5 px-7 py-6 flex-1">
         <div className="flex-1 min-w-0 flex flex-col gap-4">
           <InvoiceInfoPanel        inv={invoice} />
+          <AutoFillTechnicalInfoPanel inv={invoice} />
           <BillingInfoPanel        inv={invoice} />
           <PaymentSummaryPanel     inv={invoice} />
           <BankInfoPanel           inv={invoice} />
-          <LinkedQSPanel           inv={invoice} />
+          <LinkedVoucherPanel      inv={invoice} />
           <InvoiceAttachmentsPanel inv={invoice} />
           <InvoiceNotesPanel       inv={invoice} />
           <InvoiceActivityTimeline activity={invoice.activity ?? []} />
@@ -113,27 +111,25 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
         <InvoiceDetailSidebar
           invoice={invoice}
           canEdit={canEdit}
-          canCreate={canCreate}
           onEdit={()     => router.push(`/dashboard/invoice/${invoice.id}/edit`)}
           onIssue={()    => issueModal.open()}
           onMarkSent={() => sentModal.open()}
-          onVoucher={()  => voucherModal.open()}
           onCancel={()   => cancelModal.open()}
           onDownload={()  => { /* no backend endpoint for PDF — intentionally non-functional */ }}
         />
       </div>
 
-      {/* ── Issue Invoice (DRAFT → PENDING) ───────────────────── */}
+      {/* ── Issue Invoice (DRAFT → ISSUED) ───────────────────── */}
       <ConfirmModal
         open={issueModal.isOpen}
         onClose={issueModal.close}
         onConfirm={run(issueModal, async () => {
-          await submitInvoice(invoice.id)   // PATCH /invoices/:id { status: 'PENDING' }
+          await issueInvoice(invoice.id)   // PATCH /invoices/:id { status: 'ISSUED' }
           await invalidate()
           router.refresh()
         })}
         title="Issue Invoice"
-        description={`Issue ${invoice.docNumber}? The status will change from Draft to Pending.`}
+        description={`Issue ${invoice.docNumber}? The status will change from Draft to Issued.`}
         confirmLabel="Issue Invoice"
         cancelLabel="Cancel"
         variant="primary"
@@ -145,7 +141,7 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
         No backend endpoint exists for "mark as sent" — the backend has no
         SENT status in InvoiceStatus. This modal is intentionally preserved
         for UI continuity but its confirm handler is a no-op. The button
-        visibility guard (status === 'PENDING') means it will only show
+        visibility guard (status === 'ISSUED') means it will only show
         when relevant; the action itself does nothing until a backend
         endpoint is added.
       */}
@@ -159,26 +155,6 @@ export function InvoiceDetailClient({ id }: InvoiceDetailClientProps) {
         title="Mark as Sent"
         description={`Confirm ${invoice.docNumber} has been sent to ${invoice.insuredName}? (Note: this action has no backend effect yet.)`}
         confirmLabel="Mark as Sent"
-        cancelLabel="Cancel"
-        variant="primary"
-        loading={isProcessing}
-      />
-
-      {/* ── Generate Voucher (navigate to voucher create) ─────── */}
-      {/*
-        Backend supports voucher creation via POST /vouchers with invoice_id.
-        The voucher create page handles the API call — this modal confirms
-        intent and navigates there with the invoice ID pre-filled.
-      */}
-      <ConfirmModal
-        open={voucherModal.isOpen}
-        onClose={voucherModal.close}
-        onConfirm={run(voucherModal, async () => {
-          router.push(`/dashboard/voucher/new?invoiceId=${invoice.id}`)
-        })}
-        title="Generate Voucher"
-        description={`Generate a payment voucher from ${invoice.docNumber}? This will advance the workflow to the Voucher stage.`}
-        confirmLabel="Generate Voucher"
         cancelLabel="Cancel"
         variant="primary"
         loading={isProcessing}

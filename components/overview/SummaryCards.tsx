@@ -10,6 +10,7 @@ import {
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/format'
 import Link from 'next/link'
+import { ROUTES } from '@/config/routes'
 
 interface SummaryCard {
   label:       string
@@ -27,7 +28,7 @@ const CARDS: SummaryCard[] = [
     value:       142,
     subtext:     '18 active this month',
     icon:        FileText,
-    href:        '/dashboard/pi/qs',
+    href:        ROUTES.qs.list,
     accentColor: 'navy',
   },
   {
@@ -35,7 +36,7 @@ const CARDS: SummaryCard[] = [
     value:       38,
     subtext:     '8 pending approval',
     icon:        Receipt,
-    href:        '/dashboard/pi/invoice',
+    href:        ROUTES.invoice.list,
     accentColor: 'steel',
     trend:       { value: '+4 this week', positive: true },
   },
@@ -44,7 +45,7 @@ const CARDS: SummaryCard[] = [
     value:       21,
     subtext:     'IDR 7.94 B total value',
     icon:        CreditCard,
-    href:        '/dashboard/finance',
+    href:        ROUTES.finance.monitor,
     accentColor: 'warning',
   },
   {
@@ -52,7 +53,7 @@ const CARDS: SummaryCard[] = [
     value:       6,
     subtext:     'Requires immediate action',
     icon:        AlertTriangle,
-    href:        '/dashboard/finance/overdue',
+    href:        ROUTES.finance.overdue,
     accentColor: 'danger',
     trend:       { value: '+1 since yesterday', positive: false },
   },
@@ -61,7 +62,7 @@ const CARDS: SummaryCard[] = [
     value:       87,
     subtext:     '94 total processed',
     icon:        Package,
-    href:        '/dashboard/pi/shipment',
+    href:        ROUTES.shipment.list,
     accentColor: 'success',
     trend:       { value: '+3 this week', positive: true },
   },

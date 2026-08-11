@@ -7,6 +7,7 @@ import {
   StickyNote,
   ExternalLink,
   Landmark,
+  Wallet,
 } from 'lucide-react'
 import Link            from 'next/link'
 import { cn }          from '@/lib/utils'
@@ -203,12 +204,12 @@ export function BankInfoPanel({ inv }: { inv: InvoiceDocument }) {
   )
 }
 
-// ─── Linked QS Panel ─────────────────────────────────────────────
-export function LinkedQSPanel({ inv }: { inv: InvoiceDocument }) {
+// ─── Linked Voucher Invoice Panel ─────────────────────────────────
+export function LinkedVoucherPanel({ inv }: { inv: InvoiceDocument }) {
   return (
-    <DetailSection icon={FileText} title="Linked Quotation Sheet" id="linked-qs">
+    <DetailSection icon={Wallet} title="Linked Voucher Invoice" id="linked-voucher">
       <Link
-        href={`/dashboard/qs/${inv.qsId}`}
+        href={`/dashboard/voucher/${inv.voucherInvoiceId}`}
         className={cn(
           'flex items-center gap-3 p-3 rounded-lg border border-[#d5e3ef]',
           'hover:border-[#93c4e5] hover:bg-[#f7f9fb]',
@@ -216,10 +217,10 @@ export function LinkedQSPanel({ inv }: { inv: InvoiceDocument }) {
         )}
       >
         <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#e8f3fb] flex-shrink-0">
-          <FileText size={15} className="text-[#123d6b]" strokeWidth={1.6} />
+          <Wallet size={15} className="text-[#123d6b]" strokeWidth={1.6} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-[#18273a] font-mono">{inv.qsNumber}</p>
+          <p className="text-[13px] font-semibold text-[#18273a] font-mono">{inv.voucherInvoiceNumber}</p>
           <p className="text-[11px] text-[#3a5068]">
             {inv.insuredName}
             {inv.vesselName ? ` · ${inv.vesselName}` : ''}
@@ -230,6 +231,31 @@ export function LinkedQSPanel({ inv }: { inv: InvoiceDocument }) {
           className="text-[#7a8fa3] group-hover:text-[#123d6b] transition-colors"
         />
       </Link>
+    </DetailSection>
+  )
+}
+
+// ─── System Auto-Fill Technical Info Panel ────────────────────────
+// Per the latest Finance API Specification: Client, Vessel, Policy
+// Number, Premium, Insurance Company, Leader, Member, Share are all
+// system auto-filled from the Voucher Invoice's RFI/Policy chain and
+// must never be manually entered — rendered here as read-only,
+// distinct from the editable Billing Information panel above.
+export function AutoFillTechnicalInfoPanel({ inv }: { inv: InvoiceDocument }) {
+  const hasAnyField = inv.policyNumber || inv.premium != null || inv.insuranceCompanyName || inv.leaderName
+  if (!hasAnyField) return null
+
+  return (
+    <DetailSection icon={FileText} title="Technical Information (Auto-Filled)" id="technical-info">
+      <dl className="grid grid-cols-2 gap-x-8 gap-y-5">
+        {inv.policyNumber && <FieldRow label="Policy Number" value={inv.policyNumber} mono />}
+        {inv.premium != null && <FieldRow label="Premium" value={formatCurrency(inv.premium, inv.currency)} mono />}
+        {inv.insuranceCompanyName && <FieldRow label="Insurance Company" value={inv.insuranceCompanyName} />}
+        {inv.leaderName && <FieldRow label="Leader" value={inv.leaderName} />}
+        {inv.memberNames && inv.memberNames.length > 0 && (
+          <FieldRow label="Members" value={inv.memberNames.join(', ')} colSpan />
+        )}
+      </dl>
     </DetailSection>
   )
 }

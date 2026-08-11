@@ -1,14 +1,17 @@
 import type { Division } from './workflow'
 
 // ─── Invoice-specific statuses ───────────────────────────────────
-// Aligned with backend prisma enum InvoiceStatus (see types/backend/invoice.ts).
-// SHIPPED is set automatically by POST /shipments — never set by the client.
+// Aligned with the latest Finance API Specification's documented
+// Invoice Status flow: DRAFT → ISSUED → UNPAID → PARTIAL → PAID.
+// The earlier contract's PENDING/VOUCHER/SHIPPED/CLOSED are retired —
+// VOUCHER in particular no longer makes sense now that Voucher
+// precedes Invoice instead of following it (Phase 5/6).
 export type InvoiceStatus =
   | 'DRAFT'
-  | 'PENDING'
-  | 'VOUCHER'
-  | 'SHIPPED'
-  | 'CLOSED'
+  | 'ISSUED'
+  | 'UNPAID'
+  | 'PARTIAL'
+  | 'PAID'
 
 export type InvoicePaymentStatus =
   | 'UNPAID'
@@ -71,10 +74,17 @@ export interface InvoiceDocument {
   paymentStatus:  InvoicePaymentStatus
 
   // Linked documents
-  qsId:           string
-  qsNumber:       string
-  voucherId?:     string
-  voucherNumber?: string
+  voucherInvoiceId:      string
+  voucherInvoiceNumber:  string
+
+  // System Auto Fill fields — per the latest Finance API Specification,
+  // these are sourced from the Voucher Invoice's RFI/Policy chain and
+  // must never be manually entered on create/edit.
+  policyNumber?:         string
+  premium?:              number
+  insuranceCompanyName?: string
+  leaderName?:           string
+  memberNames?:          string[]
 
   // Billing
   insuredName:     string
@@ -116,27 +126,25 @@ export interface InvoiceDocument {
 
 // ─── Invoice List Item (table row) ───────────────────────────────
 export interface InvoiceListItem {
-  id:             string
-  docNumber:      string
-  division:       Division
-  qsNumber:       string
-  insuredName:    string
-  vesselName?:    string
-  currency:       'IDR' | 'USD'
-  totalAmount:    number
-  paidAmount:     number
-  remainingAmount:number
-  dueDate:        string
-  status:         InvoiceStatus
-  paymentStatus:  InvoicePaymentStatus
-  hasVoucher:     boolean
-  voucherNumber?: string
-  createdAt:      string
+  id:                    string
+  docNumber:             string
+  division:              Division
+  voucherInvoiceNumber:  string
+  insuredName:           string
+  vesselName?:           string
+  currency:              'IDR' | 'USD'
+  totalAmount:           number
+  paidAmount:            number
+  remainingAmount:       number
+  dueDate:               string
+  status:                InvoiceStatus
+  paymentStatus:         InvoicePaymentStatus
+  createdAt:             string
 }
 
 // ─── Create Invoice Payload ──────────────────────────────────────
 export interface CreateInvoicePayload {
-  qsId:            string
+  voucherInvoiceId: string
   division:        Division
   insuredName:     string
   vesselName?:     string

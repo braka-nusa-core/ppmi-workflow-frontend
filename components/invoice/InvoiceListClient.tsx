@@ -19,8 +19,8 @@ import { fetchInvoiceList }    from '@/lib/api/invoice'
 import type { InvoiceListItem, InvoiceStatus } from '@/types/invoice'
 
 // ─── Filter definitions ──────────────────────────────────────────
-// Values must match backend enum (types/backend/invoice.ts):
-//   InvoiceStatus: DRAFT | PENDING | VOUCHER | SHIPPED | CLOSED
+// Aligned with the latest Finance API Specification's documented
+// Invoice Status flow: DRAFT → ISSUED → UNPAID → PARTIAL → PAID.
 const INVOICE_FILTERS: FilterDef[] = [
   {
     key:   'status',
@@ -28,10 +28,10 @@ const INVOICE_FILTERS: FilterDef[] = [
     type:  'select',
     options: [
       { value: 'DRAFT',   label: 'Draft'   },
-      { value: 'PENDING', label: 'Pending' },
-      { value: 'VOUCHER', label: 'Voucher' },
-      { value: 'SHIPPED', label: 'Shipped' },
-      { value: 'CLOSED',  label: 'Closed'  },
+      { value: 'ISSUED',  label: 'Issued'  },
+      { value: 'UNPAID',  label: 'Unpaid'  },
+      { value: 'PARTIAL', label: 'Partial' },
+      { value: 'PAID',    label: 'Paid'    },
     ],
   },
   {
@@ -45,7 +45,6 @@ export function InvoiceListClient() {
   const router = useRouter()
   const { canCreate, canEdit } = useRole()
   const table        = useDataTable({ defaultPageSize: 25 })
-  const voucherModal = useModal<InvoiceListItem>()
   const sentModal    = useModal<InvoiceListItem>()
 
   // ── Data fetching ──────────────────────────────────────────────
@@ -74,12 +73,10 @@ export function InvoiceListClient() {
   const columns = useMemo(() => buildInvoiceColumns({
     onView:            (row) => router.push(`/dashboard/invoice/${row.id}`),
     onEdit:            (row) => router.push(`/dashboard/invoice/${row.id}/edit`),
-    onGenerateVoucher: (row) => voucherModal.open(row),
     onDownloadPDF:     () => { /* wire to downloadInvoicePDF */ },
     onMarkSent:        (row) => sentModal.open(row),
     canEdit,
-    canCreate,
-  }), [canEdit, canCreate, router, voucherModal, sentModal])
+  }), [canEdit, router, sentModal])
 
   return (
     <>
@@ -139,23 +136,6 @@ export function InvoiceListClient() {
           />
         )}
       </div>
-
-      {/* Generate Voucher confirm */}
-      <ConfirmModal
-        open={voucherModal.isOpen}
-        onClose={voucherModal.close}
-        onConfirm={() => {
-          voucherModal.close()
-          if (voucherModal.data) {
-            router.push(`/dashboard/voucher/new?invoiceId=${voucherModal.data.id}`)
-          }
-        }}
-        title="Generate Voucher"
-        description={`Generate a payment voucher from ${voucherModal.data?.docNumber}? This will advance the workflow to the Voucher stage.`}
-        confirmLabel="Generate Voucher"
-        cancelLabel="Cancel"
-        variant="primary"
-      />
 
       {/* Mark Sent confirm */}
       <ConfirmModal

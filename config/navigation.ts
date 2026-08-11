@@ -1,4 +1,5 @@
 import type { UserRole } from '@/types/workflow'
+import { ROUTES } from '@/config/routes'
 
 export interface NavItemConfig {
   label: string
@@ -14,56 +15,48 @@ export interface NavGroupConfig {
   requiredRole?: UserRole[]
 }
 
-// Full nav — filtered at runtime by role
+// Full nav — filtered at runtime by role. Hrefs sourced from config/routes.ts
+// (the single source of truth for route paths); this file only adds
+// UI concerns (labels, icons, grouping, role/permission gating).
 export const FULL_NAV_CONFIG: NavGroupConfig[] = [
   {
     label: '',
     items: [
-      { label: 'Overview', href: '/dashboard/overview', iconName: 'LayoutDashboard' },
+      { label: 'Overview', href: ROUTES.overview, iconName: 'LayoutDashboard' },
     ],
   },
   {
-    label: 'P&I Division',
+    label: 'Workflow',
     items: [
-      { label: 'Quotation Sheet', href: '/dashboard/pi/qs',       iconName: 'FileText' },
-      { label: 'Invoice',         href: '/dashboard/pi/invoice',   iconName: 'Receipt'  },
-      { label: 'Voucher',         href: '/dashboard/pi/voucher',   iconName: 'Wallet'   },
-      { label: 'Payment',         href: '/dashboard/pi/payment',   iconName: 'CreditCard' },
-      { label: 'Shipment',        href: '/dashboard/pi/shipment',  iconName: 'Package'  },
-    ],
-  },
-  {
-    label: 'H&M Division',
-    items: [
-      { label: 'Quotation Sheet', href: '/dashboard/hm/qs',       iconName: 'FileText' },
-      { label: 'Invoice',         href: '/dashboard/hm/invoice',   iconName: 'Receipt'  },
-      { label: 'Voucher',         href: '/dashboard/hm/voucher',   iconName: 'Wallet'   },
-      { label: 'Payment',         href: '/dashboard/hm/payment',   iconName: 'CreditCard' },
-      { label: 'Shipment',        href: '/dashboard/hm/shipment',  iconName: 'Package'  },
+      { label: 'Quotation Sheet', href: ROUTES.qs.list,       iconName: 'FileText' },
+      { label: 'Policy Placement', href: ROUTES.policy.list,  iconName: 'Shield'   },
+      { label: 'Request For Invoice', href: ROUTES.rfi.list, iconName: 'ClipboardList' },
+      { label: 'Invoice',         href: ROUTES.invoice.list,  iconName: 'Receipt'  },
+      { label: 'Voucher',         href: ROUTES.voucher.list,  iconName: 'Wallet'   },
+      { label: 'Payment',         href: ROUTES.payment.list,  iconName: 'CreditCard' },
+      { label: 'Shipment',        href: ROUTES.shipment.list, iconName: 'Package'  },
     ],
   },
   {
     label: 'Finance',
     requiredRole: ['finance', 'administrator'],
     items: [
-      { label: 'Payment Monitor', href: '/dashboard/finance',              iconName: 'DollarSign'  },
-      { label: 'Overdue',         href: '/dashboard/finance/overdue',      iconName: 'AlertTriangle', badge: 'overdue' },
-      { label: 'Verification',    href: '/dashboard/finance/verification', iconName: 'CheckSquare' },
+      { label: 'Payment Monitor', href: ROUTES.finance.monitor,      iconName: 'DollarSign'  },
+      { label: 'Overdue',         href: ROUTES.finance.overdue,      iconName: 'AlertTriangle', badge: 'overdue' },
+      { label: 'Verification',    href: ROUTES.finance.verification, iconName: 'CheckSquare' },
     ],
   },
   {
     label: 'Reports',
     items: [
-      { label: 'Reports', href: '/dashboard/reports', iconName: 'BarChart2' },
+      { label: 'Reports', href: ROUTES.reports, iconName: 'BarChart2' },
     ],
   },
   {
     label: 'Administration',
     requiredRole: ['administrator'],
     items: [
-      { label: 'Users',       href: '/dashboard/admin/users',    iconName: 'Users'    },
-      { label: 'Permissions', href: '/dashboard/admin/roles',    iconName: 'Shield'   },
-      { label: 'Settings',    href: '/dashboard/admin/settings', iconName: 'Settings' },
+      { label: 'Administration', href: ROUTES.admin, iconName: 'Shield' },
     ],
   },
 ]

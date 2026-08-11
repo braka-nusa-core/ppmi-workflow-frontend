@@ -1,29 +1,30 @@
 import {
   FileText,
-  Receipt,
+  Shield,
+  ClipboardList,
   Wallet,
-  CreditCard,
+  Receipt,
+  ArrowDownCircle,
+  ArrowUpCircle,
   Package,
   ChevronRight,
   Check,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import type { WorkflowStage } from '@/types/workflow'
+import { WORKFLOW_STAGES, STAGE_CONFIG, type WorkflowStage } from '@/types/workflow'
 
-// ─── Stage config ────────────────────────────────────────────────
-const STAGE_CONFIG: Record<WorkflowStage, {
-  label: string
-  icon:  React.ElementType
-}> = {
-  QS:       { label: 'Quotation Sheet', icon: FileText   },
-  INVOICE:  { label: 'Invoice',          icon: Receipt    },
-  VOUCHER:  { label: 'Voucher',           icon: Wallet     },
-  PAYMENT:  { label: 'Payment',           icon: CreditCard },
-  SHIPMENT: { label: 'Shipment',          icon: Package    },
+// Presentational icon mapping only — labels/order come from types/workflow.ts
+const STAGE_ICONS: Record<WorkflowStage, React.ElementType> = {
+  QS:               FileText,
+  POLICY:           Shield,
+  RFI:              ClipboardList,
+  VOUCHER_INVOICE:  Wallet,
+  INVOICE:          Receipt,
+  INCOMING_PAYMENT: ArrowDownCircle,
+  OUTGOING_PAYMENT: ArrowUpCircle,
+  SHIPMENT:         Package,
 }
-
-const STAGE_ORDER: WorkflowStage[] = ['QS', 'INVOICE', 'VOUCHER', 'PAYMENT', 'SHIPMENT']
 
 // ─── Linked document node ────────────────────────────────────────
 interface LinkedDoc {
@@ -41,7 +42,7 @@ interface LinkedWorkflowNavigatorProps {
 }
 
 export function LinkedWorkflowNavigator({ links, className }: LinkedWorkflowNavigatorProps) {
-  const stagesInOrder = STAGE_ORDER.map((stage) =>
+  const stagesInOrder = WORKFLOW_STAGES.map((stage) =>
     links.find((l) => l.stage === stage) ?? null
   )
 
@@ -59,10 +60,10 @@ export function LinkedWorkflowNavigator({ links, className }: LinkedWorkflowNavi
 
       <div className="flex items-center gap-0">
         {stagesInOrder.map((doc, idx) => {
-          const stage  = STAGE_ORDER[idx]
+          const stage  = WORKFLOW_STAGES[idx]
           const cfg    = STAGE_CONFIG[stage]
-          const Icon   = cfg.icon
-          const isLast = idx === STAGE_ORDER.length - 1
+          const Icon   = STAGE_ICONS[stage]
+          const isLast = idx === WORKFLOW_STAGES.length - 1
 
           // State
           const isActive  = doc?.isActive ?? false

@@ -16,8 +16,7 @@ import {
   VoucherInfoPanel,
   PaymentInfoPanel,
   VoucherBankInfoPanel,
-  LinkedInvoicePanel,
-  LinkedQSMiniPanel,
+  LinkedRfiPanel,
   VoucherAttachmentsPanel,
   VoucherNotesPanel,
 } from './VoucherDetailInfoPanels'
@@ -149,8 +148,7 @@ export function VoucherDetailClient({ id }: VoucherDetailClientProps) {
       <div className="flex gap-5 px-7 py-6 flex-1">
         <div className="flex-1 min-w-0 flex flex-col gap-4">
           <VoucherInfoPanel     vch={vch} />
-          <LinkedInvoicePanel   vch={vch} />
-          <LinkedQSMiniPanel    vch={vch} />
+          <LinkedRfiPanel       vch={vch} />
           <PaymentInfoPanel     vch={vch} />
           <VoucherBankInfoPanel vch={vch} />
           <ApprovalPanel        voucher={vch} />

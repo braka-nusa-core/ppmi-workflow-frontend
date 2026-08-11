@@ -50,7 +50,7 @@ export function VoucherEditClient({ id }: VoucherEditClientProps) {
   const form = useForm<CreateVoucherFormData>({
     resolver: zodResolver(createVoucherSchema),
     defaultValues: {
-      invoiceId:    '',
+      rfiId:        '',
       division:     'PI',
       currency:     'IDR',
       amount:       0,
@@ -67,7 +67,7 @@ export function VoucherEditClient({ id }: VoucherEditClientProps) {
   useEffect(() => {
     if (!vch) return
     reset({
-      invoiceId:      vch.invoiceId,
+      rfiId:          vch.rfiId,
       division:       vch.division,
       paymentType:    vch.paymentType,
       currency:       vch.currency,
@@ -201,7 +201,7 @@ export function VoucherEditClient({ id }: VoucherEditClientProps) {
           <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} noValidate>
             <div className="flex flex-col gap-0 divide-y divide-[#f0f4f7]">
               <div id="voucher"   className="pb-8">
-                <VoucherInfoSection form={form} linkedInvoiceNumber={vch.invoiceNumber} linkedQSNumber={vch.qsNumber} />
+                <VoucherInfoSection form={form} linkedRfiNumber={vch.rfiNumber} linkedInsuredName={vch.insuredName} />
               </div>
               <div id="payment"   className="py-8"><VoucherPaymentSection  form={form} /></div>
               <div id="bank"      className="py-8"><VoucherBankSection     form={form} /></div>

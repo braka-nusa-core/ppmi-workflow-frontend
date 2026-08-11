@@ -1,9 +1,10 @@
 import { z } from 'zod'
 
 export const createVoucherSchema = z.object({
-  invoiceId:     z.string().min(1, 'Linked invoice is required'),
+  rfiId:         z.string().min(1, 'Linked RFI is required'),
+  receivedDate:  z.string().optional(),
   voucherNumber: z.string().min(1, 'Voucher number is required'),
-  division:      z.enum(['PI', 'HM'], { required_error: 'Division is required' }),
+  division:      z.enum(['PI', 'HM', 'CARGO'], { required_error: 'Division is required' }),
 
   paymentType: z.enum(
     ['BANK_TRANSFER', 'CHEQUE', 'RTGS', 'SWIFT', 'CASH'],

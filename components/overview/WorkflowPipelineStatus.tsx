@@ -1,11 +1,15 @@
 import {
   FileText,
-  Receipt,
+  Shield,
+  ClipboardList,
   Wallet,
-  CreditCard,
+  Receipt,
+  ArrowDownCircle,
+  ArrowUpCircle,
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ROUTES } from '@/config/routes'
 import type { WorkflowStageCount } from '@/types/overview'
 import type { WorkflowStage } from '@/types/workflow'
 import type { ElementType } from 'react'
@@ -15,11 +19,14 @@ const STAGE_CONFIG: Record<WorkflowStage, {
   icon:  ElementType
   color: string
 }> = {
-  QS:       { label: 'Quotation Sheet', icon: FileText,   color: '#123d6b' },
-  INVOICE:  { label: 'Invoice',          icon: Receipt,    color: '#2d6495' },
-  VOUCHER:  { label: 'Voucher',           icon: Wallet,     color: '#3d7baf' },
-  PAYMENT:  { label: 'Payment',           icon: CreditCard, color: '#174e87' },
-  SHIPMENT: { label: 'Shipment',          icon: Package,    color: '#1a5c38' },
+  QS:               { label: 'Quotation Sheet',   icon: FileText,        color: '#123d6b' },
+  POLICY:           { label: 'Policy Placement',  icon: Shield,          color: '#2d6495' },
+  RFI:              { label: 'Request For Invoice', icon: ClipboardList, color: '#3d7baf' },
+  VOUCHER_INVOICE:  { label: 'Voucher Invoice',   icon: Wallet,          color: '#4a8fc2' },
+  INVOICE:          { label: 'Invoice',           icon: Receipt,         color: '#174e87' },
+  INCOMING_PAYMENT: { label: 'Incoming Payment',  icon: ArrowDownCircle, color: '#1a5c38' },
+  OUTGOING_PAYMENT: { label: 'Outgoing Payment',  icon: ArrowUpCircle,   color: '#8c1f1f' },
+  SHIPMENT:         { label: 'Shipment',          icon: Package,         color: '#1a5c38' },
 }
 
 interface StatusPillProps {
@@ -54,7 +61,7 @@ interface WorkflowPipelineStatusProps {
 }
 
 export function WorkflowPipelineStatus({ data }: WorkflowPipelineStatusProps) {
-  const stages: WorkflowStage[] = ['QS', 'INVOICE', 'VOUCHER', 'PAYMENT', 'SHIPMENT']
+  const stages: WorkflowStage[] = ['QS', 'INVOICE', 'VOUCHER_INVOICE', 'INCOMING_PAYMENT', 'SHIPMENT']
 
   return (
     <div className="card">
@@ -69,7 +76,7 @@ export function WorkflowPipelineStatus({ data }: WorkflowPipelineStatusProps) {
           </p>
         </div>
         <a
-          href="/dashboard/pi/qs"
+          href={ROUTES.qs.list}
           className="text-[11px] font-medium text-[#123d6b] hover:text-[#0d2d50] hover:underline transition-colors duration-100"
         >
           View all

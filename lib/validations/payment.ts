@@ -5,39 +5,38 @@ const paymentMethodEnum = z.enum(
   { required_error: 'Payment method is required' }
 )
 
+// Matches POST /finance/ar/payments per the latest Finance API
+// Specification: { invoiceId, paymentDate, amount, paymentMethod,
+// bankAccount, referenceNumber, notes }. Used for both the full
+// Create page and the in-detail "record a payment" modal — under the
+// flat per-payment-record model there's no separate "installment"
+// operation; every payment against an invoice is the same shape.
 export const recordPaymentSchema = z.object({
   paidAmount:      z.number({ invalid_type_error: 'Amount is required' }).min(1, 'Amount must be greater than 0'),
   paidDate:        z.string().min(1, 'Payment date is required'),
   paymentMethod:   paymentMethodEnum,
+  bankAccount:     z.string().optional(),
   referenceNumber: z.string().optional(),
   notes:           z.string().optional(),
 })
 
 export type RecordPaymentFormData = z.infer<typeof recordPaymentSchema>
 
-export const recordInstallmentSchema = z.object({
-  paidAmount:      z.number({ invalid_type_error: 'Amount is required' }).min(1, 'Amount must be greater than 0'),
+export const createPaymentSchema = z.object({
+  invoiceId:       z.string().min(1, 'Invoice is required'),
   paidDate:        z.string().min(1, 'Payment date is required'),
+  paidAmount:      z.number({ invalid_type_error: 'Amount is required' }).min(1, 'Amount must be greater than 0'),
   paymentMethod:   paymentMethodEnum,
+  bankAccount:     z.string().optional(),
   referenceNumber: z.string().optional(),
   notes:           z.string().optional(),
 })
 
-export type RecordInstallmentFormData = z.infer<typeof recordInstallmentSchema>
-
-export const createPaymentSchema = z.object({
-  voucherId:         z.string().min(1, 'Voucher is required'),
-  installmentNumber: z.number({ invalid_type_error: 'Installment number is required' }).int().min(1, 'Installment number must be at least 1'),
-  paymentDate:       z.string().optional(),
-  dueDate:           z.string().min(1, 'Due date is required'),
-  paidAmount:        z.number({ invalid_type_error: 'Paid amount is required' }).int().min(0, 'Paid amount cannot be negative'),
-  remainingAmount:   z.number({ invalid_type_error: 'Remaining amount is required' }).int().min(0, 'Remaining amount cannot be negative'),
-  remarks:           z.string().min(1, 'Remarks is required'),
-  paymentProof:      z.string().optional(),
-})
-
 export type CreatePaymentFormData = z.infer<typeof createPaymentSchema>
 
+// NOTE: verify/flag are frontend-only workflow concepts — not part of
+// the documented Incoming Payment API. Left unchanged; out of scope
+// for this phase to redesign (see Phase 7 report, Technical Debt).
 export const verifyPaymentSchema = z.object({
   verificationNotes: z.string().optional(),
 })

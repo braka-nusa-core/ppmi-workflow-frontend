@@ -4,20 +4,24 @@
  * Invoice API layer — aligned with confirmed backend contract:
  *   GET    /invoices       → list with pagination + filters
  *   GET    /invoices/:id   → single invoice detail
- *   POST   /invoices       → create
+ *   POST   /invoices       → create (from a Voucher Invoice, per Phase 6)
  *   PATCH  /invoices/:id   → update (NOT PUT)
  *   DELETE /invoices/:id   → soft delete
  *
  * Non-existent endpoints REMOVED:
- *   POST  /invoices/from-qs/:id    (no backend equivalent)
+ *   POST  /invoices/from-qs/:id    (no backend equivalent, and no longer
+ *                                   the correct origin — Invoice now
+ *                                   originates from Voucher Invoice)
  *   PATCH /invoices/:id/status     (status is updated via PATCH /invoices/:id body)
- *   PATCH /invoices/:id/mark-sent  (no backend equivalent — no SENT status)
- *   POST  /invoices/:id/advance    (no backend equivalent — voucher created via POST /vouchers)
- *   GET   /invoices/:id/pdf        (no backend equivalent)
+ *   GET   /invoices/:id/pdf        (no backend equivalent yet — per the
+ *                                   latest Finance API Specification this
+ *                                   endpoint should exist; not implemented
+ *                                   here until confirmed)
  *
  * Status transitions are performed by calling updateInvoice() with
- * { status: 'PENDING' | 'VOUCHER' | 'CLOSED' }. SHIPPED is set
- * automatically by the backend when a shipment is created.
+ * { status: 'ISSUED' }. UNPAID/PARTIAL/PAID are payment-derived (set
+ * once Incoming Payment records exist against this invoice) — never
+ * sent by the client.
  */
 
 import { get, post, patch, del } from '@/lib/api/client'
@@ -93,7 +97,7 @@ export async function createInvoice(payload: CreateInvoicePayload): Promise<Invo
 /**
  * PATCH /invoices/:id  (NOT PUT — backend uses PATCH for updates)
  * Updates one or more fields on an existing invoice record.
- * Also used for status transitions: pass { status: 'VOUCHER' } etc.
+ * Also used for status transitions: pass { status: 'ISSUED' } etc.
  */
 export async function updateInvoice(
   id: string,
@@ -115,12 +119,7 @@ export async function deleteInvoice(id: string): Promise<void> {
 
 // ─── Convenience wrappers ─────────────────────────────────────────
 
-/** Mark an invoice PENDING (status: DRAFT → PENDING) */
-export async function submitInvoice(id: string): Promise<InvoiceDocument> {
-  return updateInvoice(id, { status: 'PENDING' })
-}
-
-/** Close an invoice (status: → CLOSED) */
-export async function closeInvoice(id: string): Promise<InvoiceDocument> {
-  return updateInvoice(id, { status: 'CLOSED' })
+/** Issue an invoice (status: DRAFT → ISSUED) */
+export async function issueInvoice(id: string): Promise<InvoiceDocument> {
+  return updateInvoice(id, { status: 'ISSUED' })
 }
