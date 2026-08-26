@@ -15,6 +15,7 @@ import {
   BarChart2,
   Shield,
   ClipboardList,
+  ArrowUpCircle,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -35,6 +36,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   BarChart2,
   Shield,
   ClipboardList,
+  ArrowUpCircle,
 }
 
 function SidebarNavItem({ item }: { item: NavItemConfig }) {

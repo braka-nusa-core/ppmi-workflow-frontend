@@ -8,12 +8,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, X, Receipt }          from 'lucide-react'
 import { createPaymentSchema, type CreatePaymentFormData } from '@/lib/validations/payment'
 import { createPayment }             from '@/lib/api/payment'
-import { fetchVoucherDetail }        from '@/lib/api/voucher'
+import { fetchInvoiceDetail }        from '@/lib/api/invoice'
 import { Button }                    from '@/components/ui/Button'
 import { PageHeader }                from '@/components/layout/PageHeader'
 import { FormField, FormSection }    from '@/components/form/FormField'
-import { Input, Textarea }           from '@/components/ui/Input'
+import { Input, Select, Textarea }   from '@/components/ui/Input'
 import { useToast }                  from '@/context/ToastContext'
+
+const METHOD_OPTIONS = [
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'RTGS',          label: 'RTGS'          },
+  { value: 'SWIFT',         label: 'SWIFT'         },
+  { value: 'CHEQUE',        label: 'Cheque'        },
+  { value: 'CASH',          label: 'Cash'          },
+]
 
 export function PaymentCreateClient() {
   const router       = useRouter()
@@ -21,65 +29,64 @@ export function PaymentCreateClient() {
   const queryClient  = useQueryClient()
   const { success, error: toastError } = useToast()
 
-  const voucherIdParam = searchParams.get('voucherId') ?? ''
+  // Payment now originates from Invoice (Phase 7) — was voucherId.
+  const invoiceIdParam = searchParams.get('invoiceId') ?? ''
 
-  // ── Fetch linked voucher (when navigated from Voucher detail/list) ─
-  const { data: voucher } = useQuery({
-    queryKey: ['voucher-detail', voucherIdParam],
-    queryFn:  () => fetchVoucherDetail(voucherIdParam).then((r) => r.data),
-    enabled:  !!voucherIdParam,
+  // ── Fetch linked invoice (when navigated from Invoice detail/list) ─
+  const { data: invoice } = useQuery({
+    queryKey: ['invoice-detail', invoiceIdParam],
+    queryFn:  () => fetchInvoiceDetail(invoiceIdParam),
+    enabled:  !!invoiceIdParam,
   })
 
   const form = useForm<CreatePaymentFormData>({
     resolver: zodResolver(createPaymentSchema),
     defaultValues: {
-      voucherId:         voucherIdParam,
-      installmentNumber: 1,
-      paymentDate:        '',
-      dueDate:            '',
-      paidAmount:         0,
-      remainingAmount:    0,
-      remarks:            '',
-      paymentProof:       '',
+      invoiceId:       invoiceIdParam,
+      paidDate:        new Date().toISOString().slice(0, 10),
+      paidAmount:      0,
+      paymentMethod:   'BANK_TRANSFER',
+      bankAccount:     '',
+      referenceNumber: '',
+      notes:           '',
     },
   })
 
   const { register, handleSubmit, formState: { errors }, setValue } = form
 
-  // Pre-fill remainingAmount from the linked voucher's amount once loaded
+  // Pre-fill invoiceId + suggest full outstanding amount once the
+  // linked invoice loads.
   useEffect(() => {
-    if (!voucher) return
-    setValue('voucherId', voucher.id)
-    setValue('remainingAmount', voucher.amount)
-  }, [voucher, setValue])
+    if (!invoice) return
+    setValue('invoiceId', invoice.id)
+    setValue('paidAmount', invoice.totalAmount)
+  }, [invoice, setValue])
 
   // ── Create mutation ───────────────────────────────────────────
-  // payment_status is always 'UNPAID' on create — the backend has no
-  // draft/submit concept for Payment, unlike QS/Voucher.
+  // Per the latest Finance API Specification, status and remaining
+  // balance are computed server-side from Total Invoice - Total
+  // Payment — never sent by the client.
   const createMutation = useMutation({
     mutationFn: (data: CreatePaymentFormData) =>
       createPayment({
-        voucherId:         data.voucherId,
-        installmentNumber: data.installmentNumber,
-        paymentDate:        data.paymentDate || undefined,
-        dueDate:            data.dueDate,
-        paidAmount:         data.paidAmount,
-        remainingAmount:    data.remainingAmount,
-        paymentStatus:      'UNPAID',
-        remarks:            data.remarks,
-        paymentProof:       data.paymentProof || undefined,
+        invoiceId:       data.invoiceId,
+        paidDate:        data.paidDate,
+        paidAmount:      data.paidAmount,
+        paymentMethod:   data.paymentMethod,
+        bankAccount:     data.bankAccount || undefined,
+        referenceNumber: data.referenceNumber || undefined,
+        notes:           data.notes || undefined,
       }),
     onSuccess: (payment) => {
       queryClient.invalidateQueries({ queryKey: ['payment-list'] })
-      if (voucherIdParam) {
-        queryClient.invalidateQueries({ queryKey: ['voucher-list'] })
-        queryClient.invalidateQueries({ queryKey: ['voucher-detail', voucherIdParam] })
+      if (invoiceIdParam) {
+        queryClient.invalidateQueries({ queryKey: ['invoice-detail', invoiceIdParam] })
       }
-      success('Payment Created', `${payment.docNumber} has been created successfully.`)
+      success('Payment Recorded', `${payment.docNumber} has been created successfully.`)
       router.push(`/dashboard/payment/${payment.id}`)
     },
     onError: () => {
-      toastError('Save failed', 'Could not create the payment. Please check your inputs and try again.')
+      toastError('Save failed', 'Could not record the payment. Please check your inputs and try again.')
     },
   })
 
@@ -92,7 +99,7 @@ export function PaymentCreateClient() {
       <div className="page-container pb-0">
         <PageHeader
           title="New Payment"
-          description={voucher ? `Creating payment installment for ${voucher.docNumber}` : 'Create a new payment installment'}
+          description={invoice ? `Recording a payment for ${invoice.docNumber}` : 'Record a new incoming payment'}
           breadcrumbs={[
             { label: 'Payment', href: '/dashboard/payment' },
             { label: 'New Payment' },
@@ -102,14 +109,14 @@ export function PaymentCreateClient() {
 
       <div className="flex-1 overflow-y-auto page-container pt-6">
 
-        {/* Voucher pre-fill banner */}
-        {voucher && (
+        {/* Invoice pre-fill banner */}
+        {invoice && (
           <div className="flex items-start gap-2.5 px-4 py-3 rounded-lg mb-6" style={{ background: '#e8f3fb', border: '1px solid #93c4e5' }}>
             <Receipt size={14} className="text-[#123d6b] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-[12px] font-semibold text-[#123d6b]">Linked to {voucher.docNumber}</p>
+              <p className="text-[12px] font-semibold text-[#123d6b]">Linked to {invoice.docNumber}</p>
               <p className="text-[11px] text-[#2d6495] mt-0.5">
-                Remaining amount has been pre-filled from the voucher. Review before submitting.
+                Amount has been pre-filled from the invoice total. Adjust for a partial payment before submitting.
               </p>
             </div>
           </div>
@@ -117,39 +124,22 @@ export function PaymentCreateClient() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <FormSection title="Payment Details" columns={2}>
-            {/* voucher_id — prefilled, read-only, not typed by the user */}
-            <FormField label="Voucher" required className="col-span-2">
+            {/* invoiceId — prefilled, read-only, not typed by the user */}
+            <FormField label="Invoice" required className="col-span-2">
               <Input
-                value={voucher?.docNumber ?? voucherIdParam}
+                value={invoice?.docNumber ?? invoiceIdParam}
                 readOnly
                 disabled
                 className="bg-[#f7f9fb] cursor-not-allowed"
               />
-              <input type="hidden" {...register('voucherId')} />
+              <input type="hidden" {...register('invoiceId')} />
             </FormField>
 
-            <FormField label="Installment Number" required error={errors.installmentNumber?.message}>
-              <Input
-                type="number"
-                min={1}
-                error={!!errors.installmentNumber}
-                {...register('installmentNumber', { valueAsNumber: true })}
-              />
+            <FormField label="Payment Date" required error={errors.paidDate?.message}>
+              <Input type="date" error={!!errors.paidDate} {...register('paidDate')} />
             </FormField>
 
-            <FormField label="Payment Status" hint="New payments always start as Unpaid">
-              <Input value="Unpaid" readOnly disabled className="bg-[#f7f9fb] cursor-not-allowed" />
-            </FormField>
-
-            <FormField label="Payment Date" hint="Leave blank if not yet paid" error={errors.paymentDate?.message}>
-              <Input type="date" error={!!errors.paymentDate} {...register('paymentDate')} />
-            </FormField>
-
-            <FormField label="Due Date" required error={errors.dueDate?.message}>
-              <Input type="date" error={!!errors.dueDate} {...register('dueDate')} />
-            </FormField>
-
-            <FormField label="Paid Amount" required error={errors.paidAmount?.message}>
+            <FormField label="Amount Paid" required error={errors.paidAmount?.message}>
               <Input
                 type="number"
                 min={0}
@@ -158,21 +148,25 @@ export function PaymentCreateClient() {
               />
             </FormField>
 
-            <FormField label="Remaining Amount" required error={errors.remainingAmount?.message}>
-              <Input
-                type="number"
-                min={0}
-                error={!!errors.remainingAmount}
-                {...register('remainingAmount', { valueAsNumber: true })}
+            <FormField label="Payment Method" required error={errors.paymentMethod?.message}>
+              <Select
+                options={METHOD_OPTIONS}
+                placeholder="Select method"
+                error={!!errors.paymentMethod}
+                {...register('paymentMethod')}
               />
             </FormField>
 
-            <FormField label="Payment Proof" hint="Optional — file reference or URL" className="col-span-2" error={errors.paymentProof?.message}>
-              <Input error={!!errors.paymentProof} {...register('paymentProof')} />
+            <FormField label="Bank Account" hint="Receiving bank account for this payment">
+              <Input error={!!errors.bankAccount} {...register('bankAccount')} />
             </FormField>
 
-            <FormField label="Remarks" required className="col-span-2" error={errors.remarks?.message}>
-              <Textarea rows={3} error={!!errors.remarks} {...register('remarks')} />
+            <FormField label="Reference / Transaction Number" className="col-span-2" hint="Bank transfer reference or cheque number">
+              <Input placeholder="e.g. TRF-20250115-001" {...register('referenceNumber')} />
+            </FormField>
+
+            <FormField label="Notes" className="col-span-2" error={errors.notes?.message}>
+              <Textarea rows={3} error={!!errors.notes} {...register('notes')} />
             </FormField>
           </FormSection>
 
@@ -189,7 +183,7 @@ export function PaymentCreateClient() {
           Cancel
         </Button>
         <Button variant="primary" size="sm" icon={<Save size={13} />} loading={createMutation.isPending} onClick={handleSubmit(onSubmit)}>
-          Create Payment
+          Record Payment
         </Button>
       </div>
     </div>

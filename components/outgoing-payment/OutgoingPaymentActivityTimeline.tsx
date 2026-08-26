@@ -1,18 +1,26 @@
-import { CreditCard, Pencil } from 'lucide-react'
+import { FilePlus, CheckCircle } from 'lucide-react'
 import { formatDateTime } from '@/lib/format'
-import type { PaymentActivity } from '@/types/payment'
+
+interface OutgoingPaymentActivityEvent {
+  id:           string
+  action:       string
+  description?: string
+  performedBy:  string
+  createdAt:    string
+}
 
 const ACTION_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
-  'Payment Recorded': { icon: CreditCard, bg: 'bg-[#eaf6f0]', color: 'text-[#1a5c38]' },
+  'Payment Created': { icon: FilePlus,    bg: 'bg-[#e8f3fb]', color: 'text-[#123d6b]' },
+  'Fully Paid':       { icon: CheckCircle, bg: 'bg-[#eaf6f0]', color: 'text-[#1a5c38]' },
 }
 
-const DEFAULT_CONFIG = { icon: Pencil, bg: 'bg-[#f0f4f7]', color: 'text-[#3a5068]' }
+const DEFAULT_CONFIG = { icon: FilePlus, bg: 'bg-[#f0f4f7]', color: 'text-[#3a5068]' }
 
-interface PaymentActivityTimelineProps {
-  activity: PaymentActivity[]
+interface OutgoingPaymentActivityTimelineProps {
+  activity: OutgoingPaymentActivityEvent[]
 }
 
-export function PaymentActivityTimeline({ activity }: PaymentActivityTimelineProps) {
+export function OutgoingPaymentActivityTimeline({ activity }: OutgoingPaymentActivityTimelineProps) {
   return (
     <div className="card">
       <div className="card-header">
@@ -35,11 +43,6 @@ export function PaymentActivityTimeline({ activity }: PaymentActivityTimelinePro
                     <p className="text-[12px] font-medium text-[#18273a]">{event.action}</p>
                     {event.description && (
                       <p className="text-[11px] text-[#7a8fa3] mt-0.5">{event.description}</p>
-                    )}
-                    {event.meta?.fromStatus && event.meta.toStatus && (
-                      <p className="text-[10px] text-[#9aa3ad] mt-0.5">
-                        {event.meta.fromStatus} → {event.meta.toStatus}
-                      </p>
                     )}
                     <p className="text-[10px] text-[#9aa3ad] mt-0.5">
                       {event.performedBy} · {formatDateTime(event.createdAt)}

@@ -47,6 +47,12 @@ export const ROUTES = {
     detail: (id: string) => `/dashboard/payment/${id}`,
   },
 
+  outgoingPayment: {
+    list: '/dashboard/outgoing-payment',
+    new:  '/dashboard/outgoing-payment/new',
+    detail: (id: string) => `/dashboard/outgoing-payment/${id}`,
+  },
+
   shipment: {
     list: '/dashboard/shipment',
     new:  '/dashboard/shipment/new',

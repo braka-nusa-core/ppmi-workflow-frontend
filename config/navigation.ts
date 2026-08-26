@@ -34,6 +34,7 @@ export const FULL_NAV_CONFIG: NavGroupConfig[] = [
       { label: 'Invoice',         href: ROUTES.invoice.list,  iconName: 'Receipt'  },
       { label: 'Voucher',         href: ROUTES.voucher.list,  iconName: 'Wallet'   },
       { label: 'Payment',         href: ROUTES.payment.list,  iconName: 'CreditCard' },
+      { label: 'Outgoing Payment', href: ROUTES.outgoingPayment.list, iconName: 'ArrowUpCircle' },
       { label: 'Shipment',        href: ROUTES.shipment.list, iconName: 'Package'  },
     ],
   },
