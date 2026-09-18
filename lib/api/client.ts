@@ -1,24 +1,23 @@
-import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios'
-import { API_BASE_URL, API_TIMEOUT, LS_AUTH_KEY, LS_AUTH_USER_KEY } from '@/config/constants'
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import type { ApiError } from '@/types/api'
+import { LS_AUTH_KEY, LS_AUTH_USER_KEY } from '@/config/constants'
 
-// ─── Create Axios Instance ───────────────────────────────────────
-const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: API_TIMEOUT,
+// ─── Centralized Axios Instance ────────────────────────────────────
+const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept':       'application/json',
   },
 })
 
-// ─── Request Interceptor — attach auth token ─────────────────────
+// ─── Request Interceptor — attach auth token ──────────────────────
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem(LS_AUTH_KEY)
       if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`
+        config.headers.Authorization = `Bearer ${token}`
       }
     }
     return config
@@ -28,37 +27,32 @@ apiClient.interceptors.request.use(
 
 // ─── Response Interceptor — normalize errors ─────────────────────
 //
-// Backend (NestJS GlobalException filter) error shape:
-//   { success: false, status_code: number, error: { name, message, errors? } }
+// Backend (NestJS GlobalException filter) error shape, confirmed from
+// src/common/exceptions/global.exception.ts:
+//   { success: false, error: { name, message, details? } }
 //
-// This differs from the originally-assumed flat { message, errors } shape,
-// so we check both: nested `error.*` (current backend) first, falling back
-// to top-level `message`/`errors` in case other endpoints ever return a
-// flatter shape.
+// `details` is only ever populated for Zod validation failures
+// (an array of { field, message }); every other exception path
+// (HttpException, Prisma, generic Error) omits it. We pass it through
+// as-is rather than assuming a shape.
 apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     const apiError: ApiError = {
       status:  error.response?.status ?? 0,
       message: 'An unexpected error occurred',
-      errors:  undefined,
+      details: undefined,
     }
 
     if (error.response) {
       const data = error.response.data as {
         message?: string
-        errors?: Record<string, string[]>
-        error?: { name?: string; message?: string; errors?: unknown }
+        error?: { name?: string; message?: string; details?: unknown }
       }
 
-      apiError.message =
-        data?.error?.message ??
-        data?.message ??
-        error.message
-
-      apiError.errors =
-        (data?.error?.errors as Record<string, string[]> | undefined) ??
-        data?.errors
+      apiError.name    = data?.error?.name
+      apiError.message = data?.error?.message ?? data?.message ?? error.message
+      apiError.details = data?.error?.details
 
       // 401 — clear both session keys and redirect to login.
       // Skip redirect if already on the login page to avoid redirect loops.
@@ -77,7 +71,7 @@ apiClient.interceptors.response.use(
   }
 )
 
-// ─── Typed request helpers ───────────────────────────────────────
+// ─── Generic request helpers ───────────────────────────────────────
 export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const res = await apiClient.get<T>(url, config)
   return res.data
@@ -85,11 +79,6 @@ export async function get<T>(url: string, config?: AxiosRequestConfig): Promise<
 
 export async function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   const res = await apiClient.post<T>(url, data, config)
-  return res.data
-}
-
-export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-  const res = await apiClient.put<T>(url, data, config)
   return res.data
 }
 

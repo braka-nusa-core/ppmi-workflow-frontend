@@ -29,6 +29,7 @@ export const FULL_NAV_CONFIG: NavGroupConfig[] = [
     label: 'Workflow',
     items: [
       { label: 'Quotation Sheet', href: ROUTES.qs.list,       iconName: 'FileText' },
+      { label: 'Quotations (New)', href: ROUTES.quotations.list, iconName: 'FileText' },
       { label: 'Policy Placement', href: ROUTES.policy.list,  iconName: 'Shield'   },
       { label: 'Request For Invoice', href: ROUTES.rfi.list, iconName: 'ClipboardList' },
       { label: 'Invoice',         href: ROUTES.invoice.list,  iconName: 'Receipt'  },

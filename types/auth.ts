@@ -1,144 +1,98 @@
-import type { UserRole, Division } from './workflow'
+// ═══════════════════════════════════════════════════════════════
+// BACKEND RESPONSE SHAPES — confirmed from backend source code
+// ppmi-workflow-backend-2/src/app.controller.ts, app.service.ts
+// (POST /auth/login, GET /profile)
+//
+// NOTE ON `_id`: the backend registers a global TransformIdInterceptor
+// (src/common/interceptors/transform-id.interceptor.ts) that recursively
+// renames every `id` key to `_id` in every JSON response. This is a real
+// wire-format detail, not a typo — every object below uses `_id`.
+//
+// Response envelope (src/common/interceptors/response.interceptor.ts):
+//   success responses:  { success: true, message?: string, data: T }
+//   error responses:    { success: false, error: { name, message, details? } }
+// There is no `status_code` field inside the body (only the HTTP status).
+// ═══════════════════════════════════════════════════════════════
 
+export interface BackendOrganizationUnit {
+  name:   string
+  type:   'DIVISION' | 'DEPARTMENT'
+  parent: { name: string; type: 'DIVISION' | 'DEPARTMENT' } | null
+}
+
+/** `data` inside POST /auth/login (HTTP 201). Confirmed from AppService.login(). */
+export interface BackendLoginData {
+  _id:              string
+  fullname:         string
+  email:            string
+  organizationUnit: string | null   // just the unit NAME at login time — full detail comes from /profile
+  accessToken:      string
+}
+
+export interface BackendLoginResponse {
+  success: boolean
+  data:    BackendLoginData
+}
+
+/**
+ * `data` inside GET /profile. Confirmed from AppService.profile().
+ *
+ * `permissions` is `null` when the user's role is 'SUPERADMIN' (meaning:
+ * unrestricted — do not treat null as "no permissions").
+ * Otherwise it's a flat list of "resource:action" strings, e.g.
+ * "quotation:approve". Permissions are resolved from the user's
+ * organizationUnit — and if that unit is a DEPARTMENT, from its
+ * parent DIVISION's permissions (departments inherit from their division).
+ */
+export interface BackendProfileData {
+  _id:              string
+  fullname:         string
+  email:            string
+  phone:            string | null
+  role:             'SUPERADMIN' | 'USER'
+  createdAt:        string
+  updatedAt:        string
+  organizationUnit: BackendOrganizationUnit | null
+  permissions:      string[] | null
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FRONTEND DOMAIN MODEL
+// ═══════════════════════════════════════════════════════════════
+
+export interface OrganizationUnit {
+  name:   string
+  type:   'DIVISION' | 'DEPARTMENT'
+  parent: { name: string; type: 'DIVISION' | 'DEPARTMENT' } | null
+}
+
+/**
+ * Authenticated user, shaped directly from GET /profile.
+ * Deliberately preserves the backend's own concepts (role,
+ * organizationUnit hierarchy, permission strings) instead of flattening
+ * them into an invented role enum. Anything that needs a yes/no answer
+ * (e.g. "is this user Supervisor Teknik?") should go through the helpers
+ * in lib/permissions.ts rather than re-deriving it ad hoc.
+ */
 export interface AuthUser {
-  id:       string
-  name:     string    // from backend `fullname`
-  email:    string
-  isAdmin:  boolean   // from backend `is_admin`
-
-  /**
-   * Primary role used for ALL permission checks (config/permissions.ts).
-   * Derived by normalizeRole(is_admin, roles) in lib/api/auth.ts:
-   *   is_admin === true  → 'administrator'  (always wins)
-   *   roles[0] matches   → that role (case-insensitive)
-   *   otherwise          → 'viewer'  (least-privilege default)
-   */
-  role: UserRole
-
-  /**
-   * Primary division, normalized from backend division names
-   * ('P&I' → 'PI', 'H&M' → 'HM').
-   * undefined when is_admin === true (admin has access to all divisions).
-   */
-  division?: Division
-
-  /**
-   * Raw division name strings exactly as the backend returns them.
-   * e.g. ['P&I'] or null (when is_admin).
-   * Preserved for future multi-division UI; not used by permission system.
-   */
-  divisions?: string[] | null
-
-  /**
-   * Raw role name strings exactly as the backend returns them.
-   * e.g. ['Editor'] or null (when no roles assigned).
-   * Backend roles are free-form CRUD records — these may not match the
-   * fixed UserRole enum. Use `role` (normalized) for permission checks.
-   */
-  roles?: string[] | null
-
-  avatar?:   string
-  createdAt: string
+  id:               string
+  name:             string
+  email:            string
+  phone:            string | null
+  role:             'SUPERADMIN' | 'USER'
+  isSuperAdmin:     boolean
+  organizationUnit: OrganizationUnit | null
+  /** null = unrestricted (SUPERADMIN). Otherwise "resource:action" strings. */
+  permissions:      string[] | null
+  createdAt:        string
 }
 
 export interface AuthSession {
   user:        AuthUser
   accessToken: string
-  expiresAt:   string
 }
 
 export interface LoginCredentials {
   email:    string
   password: string
-}
-
-/**
- * Payload for POST /auth/register (AdminOnly).
- * Confirmed against backend registerSchema in auth.validation.ts.
- * NOTE: `divisions` and `roles` here are UUID arrays (IDs), NOT name strings.
- * This differs from AuthUser.divisions/roles which are name strings returned
- * at login. Relevant for the Users/Admin module (future priority #2).
- */
-export interface RegisterCredentials {
-  fullname:   string
-  email:      string
-  password:   string
-  phone?:     string
-  is_admin?:  boolean
-  divisions?: string[]   // division UUIDs
-  roles?:     string[]   // role UUIDs
-}
-
-// ═══════════════════════════════════════════════════════════════
-// BACKEND RESPONSE SHAPES  — confirmed from backend source code
-// ppmi-workflow-backend-main/src/auth/auth.service.ts
-// ppmi-workflow-backend-main/src/common/types/global.type.ts
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * The `data` field inside POST /auth/login response (HTTP 201).
- *
- * Full response envelope:
- *   { success: true, status_code: 201, data: BackendLoginData }
- *
- * Confirmed return value from auth.service.ts login():
- *   { id, fullname, email, is_admin,
- *     divisions: string[]|null,   ← division NAMEs, null when is_admin
- *     roles:     string[]|null,   ← role NAMEs, null when empty
- *     access_token }
- *
- * client.ts post<T>() returns the full envelope, so callers receive
- * { success, status_code, data: BackendLoginData }.
- */
-export interface BackendLoginData {
-  id:           string
-  fullname:     string
-  email:        string
-  is_admin:     boolean
-  divisions:    string[] | null
-  roles:        string[] | null
-  access_token: string
-}
-
-export interface BackendLoginResponse {
-  success:     boolean
-  status_code: number
-  data:        BackendLoginData
-}
-
-/**
- * POST /auth/register (AdminOnly) returns only { id, email } of the
- * newly created user — no token, no login side-effect.
- * Confirmed from auth.service.ts register() prisma select clause.
- */
-export interface BackendRegisterData {
-  id:    string
-  email: string
-}
-
-export interface BackendRegisterResponse {
-  success:     boolean
-  status_code: number
-  data:        BackendRegisterData
-}
-
-/**
- * Decoded JWT payload.
- *
- * Confirmed claims from auth.service.ts jwtService.signAsync({...}):
- *   { id, is_admin, fullname, divisions, roles }
- * Plus standard JWT claims added by jwtService:
- *   { iat, exp }   (exp = iat + 6h per app.module.ts signOptions)
- *
- * NOTE: `email` is NOT a JWT claim. getMe() falls back to an empty
- * string for email when reconstructing from JWT (no cache available).
- */
-export interface BackendJwtPayload {
-  id:        string
-  is_admin:  boolean
-  fullname:  string
-  divisions: string[] | null
-  roles:     string[] | null
-  iat?:      number
-  exp?:      number
 }

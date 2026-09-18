@@ -13,6 +13,16 @@ export const ROUTES = {
     edit:   (id: string) => `/dashboard/qs/${id}/edit`,
   },
 
+  // New quotation domain (backend resource: /quotations). Deliberately
+  // separate from `qs` above — that's the legacy module's routes and
+  // targets a different, incompatible backend resource.
+  quotations: {
+    list:   '/dashboard/quotations',
+    new:    '/dashboard/quotations/new',
+    detail: (id: string) => `/dashboard/quotations/${id}`,
+    edit:   (id: string) => `/dashboard/quotations/${id}/edit`,
+  },
+
   policy: {
     list: '/dashboard/policy',
     new:  '/dashboard/policy/new',

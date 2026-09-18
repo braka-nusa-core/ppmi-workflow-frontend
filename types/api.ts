@@ -1,31 +1,29 @@
-// ─── Standard API Response Wrapper ──────────────────────────────
-export interface ApiResponse<T> {
-  success: boolean
-  data: T
-  message?: string
-  errors?: Record<string, string[]>
-}
-
-// ─── Paginated Response ──────────────────────────────────────────
-export interface PaginatedResponse<T> {
-  success: boolean
-  data: T[]
-  pagination: {
-    page: number
-    pageSize: number
-    total: number
-    totalPages: number
-  }
-}
-
 // ─── API Error ───────────────────────────────────────────────────
+// Normalized from the backend's GlobalException filter shape:
+//   { success: false, error: { name, message, details? } }
+// Confirmed shapes of `details` from actual backend source
+// (src/common/exceptions/global.exception.ts):
+//   - HttpException (BadRequestException, NotFoundException, etc.) → undefined
+//   - ZodError (validation failures)                                → Array<{ field: string | string[] | undefined; message: string }>
+//   - Prisma / generic Error                                        → undefined
+// Backend does not guarantee a single shape, so `details` is `unknown`
+// here — narrow it at the call site (e.g. `Array.isArray(details)`)
+// rather than assuming the Zod shape everywhere.
 export interface ApiError {
-  status: number
+  status:  number
+  name?:   string
   message: string
-  errors?: Record<string, string[]>
+  details?: unknown
 }
 
-// ─── Query Params for list endpoints ─────────────────────────────
+export interface PaginatedResponse<T> {
+  data: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export interface ListQueryParams {
   page?: number
   pageSize?: number
