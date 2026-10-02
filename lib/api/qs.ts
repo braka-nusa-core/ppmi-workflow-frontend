@@ -1,7 +1,22 @@
 /**
+ * @deprecated LEGACY — targets a `/qs` backend resource that no
+ * longer exists on the current backend (current backend only has
+ * `/quotations`, `/pni`, `/hm`, `/cargo` — see
+ * ppmi-workflow-backend-2/src/quotations,pni,hm,cargo). Do NOT call
+ * any function in this file from new P&I/H&M/Cargo code — use
+ * `lib/api/quotations.ts` (and, from Phase 2, `lib/api/pni.ts` /
+ * `hm.ts` / `cargo.ts`) instead.
+ *
+ * Still has one real external consumer today —
+ * `components/policy/PolicyCreateClient.tsx` calls `fetchQSDetail()`
+ * to show a "linked QS" label when a policy is created from a QS
+ * deep link — so this file cannot be deleted yet. It is otherwise
+ * only used by the legacy `components/qs/*` / `app/dashboard/qs/*`
+ * pages, which are equally deprecated.
+ *
  * lib/api/qs.ts
  *
- * QS API layer — aligned with confirmed backend contract:
+ * QS API layer — aligned with an OLDER, now-superseded backend contract:
  *   GET    /qs           → list with pagination + filters
  *   GET    /qs/:id       → single QS detail
  *   POST   /qs           → create

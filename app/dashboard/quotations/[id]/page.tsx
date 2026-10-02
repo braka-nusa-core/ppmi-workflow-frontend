@@ -1,5 +1,6 @@
+// FILE: app/dashboard/quotations/[id]/page.tsx
 import type { Metadata } from 'next'
-import { QuotationDetailClient } from '@/components/quotations/QuotationDetailClient'
+import { QuotationDetailDispatcher } from '@/components/quotations/QuotationDetailDispatcher'
 
 interface Props {
   params: { id: string }
@@ -8,7 +9,9 @@ interface Props {
 export const metadata: Metadata = { title: 'Quotation Detail | PPMI Flow' }
 
 export default function QuotationDetailPage({ params }: Props) {
-  // QuotationDetailClient fetches via useQuotation(id) (Phase 1 hook).
-  // No server-side fetch — JWT lives in localStorage, not accessible here.
-  return <QuotationDetailClient id={params.id} />
+  // Dispatches to the H&M detail view (embedded hmQuotation flag), the
+  // P&I detail view (GET /pni/quotations/:id probe), or the existing
+  // generic QuotationDetailClient — see QuotationDetailDispatcher's
+  // own comment for the detection strategy (Phase 3C).
+  return <QuotationDetailDispatcher id={params.id} />
 }

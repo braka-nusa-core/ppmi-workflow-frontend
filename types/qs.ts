@@ -1,3 +1,25 @@
+// ═══════════════════════════════════════════════════════════════
+// @deprecated LEGACY QS TYPES — DO NOT USE IN NEW CODE
+//
+// These types were written against an OLDER, no-longer-existing
+// backend contract (a `/qs` resource with pagination, a flat
+// QSStatus of DRAFT/SUBMITTED/APPROVED/REJECTED, a flat
+// InsuranceType union including values that don't exist in the
+// current schema, and vessel fields flattened directly onto one
+// document). The CURRENT backend has no `/qs` controller at all —
+// see prisma/schema.prisma / src/quotations,pni,hm,cargo instead.
+//
+// Kept only because `components/qs/*` and `lib/api/qs.ts` still
+// import from here and haven't been removed (some of that code has
+// live external consumers — see lib/api/qs.ts's own banner).
+//
+// The current, backend-aligned domain model lives in
+// `types/quotation.ts` (generic Quotation + nested resources) and,
+// from Phase 2 onward, dedicated `types/pni.ts` / `types/hm.ts` /
+// `types/cargo.ts` modules. New P&I/H&M/Cargo work must import from
+// those, never from this file.
+// ═══════════════════════════════════════════════════════════════
+
 import type { Division } from './workflow'
 
 // ─── QS Specific Types ───────────────────────────────────────────

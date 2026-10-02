@@ -1,5 +1,13 @@
 'use client'
 
+// NOTE: despite living under components/qs/, this component is NOT
+// coupled to the legacy /qs types or API — it's a generic, dumb
+// local-file picker (local `File[]` state + callback props only) and
+// is actively reused by Invoice/Voucher create/edit forms. Safe to
+// keep using as-is; it is misfiled rather than legacy, and can be
+// relocated to a shared components/ location in a future cleanup
+// pass without affecting any consumer's behavior.
+
 import { useState, useRef } from 'react'
 import { Upload, FileText, Trash2, File } from 'lucide-react'
 import { cn } from '@/lib/utils'

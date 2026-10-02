@@ -1,3 +1,4 @@
+// FILE: config/routes.ts
 // ─── ROUTES ──────────────────────────────────────────────────────
 // Single source of truth for every application route path.
 // config/navigation.ts and any non-navigation component that needs
@@ -6,6 +7,17 @@
 export const ROUTES = {
   overview: '/dashboard/overview',
 
+  /**
+   * @deprecated LEGACY — targets the old `/qs` backend resource, which
+   * no longer exists on the current backend (current backend only has
+   * `/quotations`, `/pni`, `/hm`, `/cargo`). Kept only because
+   * `app/dashboard/qs/*` and `components/qs/*` still reference it and
+   * have not been removed — `components/policy/PolicyCreateClient.tsx`
+   * still reads a legacy QS doc via `lib/api/qs.ts` for its
+   * "linked QS" display, so that one API module can't be deleted yet.
+   * Do NOT link to this from new navigation, dashboard cards, or any
+   * new QS work — use `ROUTES.quotations` below instead.
+   */
   qs: {
     list: '/dashboard/qs',
     new:  '/dashboard/qs/new',
@@ -21,6 +33,17 @@ export const ROUTES = {
     new:    '/dashboard/quotations/new',
     detail: (id: string) => `/dashboard/quotations/${id}`,
     edit:   (id: string) => `/dashboard/quotations/${id}/edit`,
+    // P&I-specific create/edit (Phase 2B) — the generic `new`/`edit`
+    // above post to POST/PATCH /quotations and cannot represent a P&I
+    // quotation's nested vessels/insurance blocks/etc. `detail` above
+    // is still the shared landing page after a P&I save, per the
+    // existing quotation detail architecture (base Quotation id).
+    pniNew:  '/dashboard/quotations/pni/new',
+    pniEdit: (id: string) => `/dashboard/quotations/pni/${id}/edit`,
+    // H&M-specific create/edit (Phase 3B) — two-step create
+    // (POST /quotations then POST /hm/quotations/:id) behind one form.
+    hmNew:   '/dashboard/quotations/hm/new',
+    hmEdit:  (id: string) => `/dashboard/quotations/hm/${id}/edit`,
   },
 
   policy: {

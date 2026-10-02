@@ -1,4 +1,8 @@
 /**
+ * @deprecated LEGACY — supports lib/api/qs.ts only, which targets a
+ * `/qs` backend resource that no longer exists on the current
+ * backend. Do not extend or import from new P&I/H&M/Cargo code.
+ *
  * QS adapters — map raw backend response fields to frontend QSListItem /
  * QSDocument shapes, and map frontend CreateQSPayload to BackendCreateQSPayload.
  *
