@@ -13,9 +13,19 @@ import { useQuotations } from '@/hooks/useQuotations'
 import { useAuth } from '@/context/AuthContext'
 import { ROUTES } from '@/config/routes'
 import { formatDate } from '@/lib/format'
+import type { TechnicalDepartment } from '@/lib/permissions'
 import { getQuotationStatusLabel, QUOTATION_STATUS_BADGE_VARIANT } from '@/lib/quotationStatus'
 import type { QuotationListItem } from '@/types/quotation'
 import type { ApiError } from '@/types/api'
+
+// Domain-specific create route per technical department. The user's
+// organization unit already determines the domain (via the existing
+// technicalDepartment() helper), so they are never asked to choose it.
+const NEW_QUOTATION_ROUTE_BY_DEPARTMENT: Record<TechnicalDepartment, string> = {
+  'P&I':   ROUTES.quotations.pniNew,
+  'H&M':   ROUTES.quotations.hmNew,
+  'Cargo': ROUTES.quotations.cargoNew,
+}
 
 // ─── Columns ──────────────────────────────────────────────────────
 // GET /quotations has no server-side sort/filter today, so columns
@@ -89,7 +99,7 @@ function buildQuotationColumns(
 
 export function QuotationListClient() {
   const router = useRouter()
-  const { can, isLoading: authLoading } = useAuth()
+  const { user, can, technicalDepartment, isLoading: authLoading } = useAuth()
   const { data, isLoading, isError, error, refetch } = useQuotations()
 
   const columns = useMemo(
@@ -117,6 +127,20 @@ export function QuotationListClient() {
     )
   }
 
+  // Where "New Quotation" goes (UX only — backend remains authoritative):
+  //   - no quotation:create             → no button
+  //   - SUPERADMIN (no technical dept)  → generic create route
+  //   - technical dept (P&I/H&M/Cargo)  → that domain's create route
+  //   - anything else (Supervisor Teknik, Finance, non-Teknik) → no button
+  const department = technicalDepartment()
+  const newQuotationRoute: string | null = !can('quotation', 'create')
+    ? null
+    : user?.isSuperAdmin
+      ? ROUTES.quotations.new
+      : department
+        ? NEW_QUOTATION_ROUTE_BY_DEPARTMENT[department]
+        : null
+
   return (
     <>
       <PageHeader
@@ -124,12 +148,12 @@ export function QuotationListClient() {
         description="Quotation Slip (QS) records — new quotation domain"
         breadcrumbs={[{ label: 'Quotations' }]}
         actions={
-          can('quotation', 'create') ? (
+          newQuotationRoute ? (
             <Button
               variant="primary"
               size="sm"
               icon={<Plus size={13} />}
-              onClick={() => router.push(ROUTES.quotations.new)}
+              onClick={() => router.push(newQuotationRoute)}
             >
               New Quotation
             </Button>

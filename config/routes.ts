@@ -44,6 +44,9 @@ export const ROUTES = {
     // (POST /quotations then POST /hm/quotations/:id) behind one form.
     hmNew:   '/dashboard/quotations/hm/new',
     hmEdit:  (id: string) => `/dashboard/quotations/hm/${id}/edit`,
+    // Cargo-specific create/edit — pages already exist at these paths.
+    cargoNew:  '/dashboard/quotations/cargo/new',
+    cargoEdit: (id: string) => `/dashboard/quotations/cargo/${id}/edit`,
   },
 
   policy: {
