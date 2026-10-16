@@ -1,3 +1,4 @@
+// FILE: components/policy/PolicyTableColumns.tsx
 'use client'
 
 import { Shield } from 'lucide-react'
@@ -6,6 +7,8 @@ import type { ColumnDef } from '@/components/table/DataTable'
 import type { PolicyListItem } from '@/types/policy'
 import { TableActions } from '@/components/table/TableActions'
 import { PolicyStatusBadge } from './PolicyStatusBadge'
+import { ROUTES } from '@/config/routes'
+import { IS_DEMO_MODE } from '@/lib/demo/demoMode'
 
 interface PolicyTableActionsConfig {
   onView:  (row: PolicyListItem) => void
@@ -28,15 +31,22 @@ export function buildPolicyColumns(a: PolicyTableActionsConfig): ColumnDef<Polic
     },
     {
       key: 'quotationNumber', header: 'Quotation Ref.', width: 160,
-      render: (row) => (
-        <a
-          href={`/dashboard/qs/${row.quotationId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="text-[11px] font-medium text-[#3a5068] font-mono hover:text-[#123d6b] hover:underline transition-colors"
-        >
-          {row.quotationNumber ?? row.quotationId}
-        </a>
-      ),
+      render: (row) =>
+        // Demo quotations are reference numbers only (they do not exist in the
+        // live system), so in demo mode the reference is plain text, not a link.
+        IS_DEMO_MODE ? (
+          <span className="text-[11px] font-medium text-[#3a5068] font-mono">
+            {row.quotationNumber ?? row.quotationId}
+          </span>
+        ) : (
+          <a
+            href={ROUTES.quotations.detail(row.quotationId)}
+            onClick={(e) => e.stopPropagation()}
+            className="text-[11px] font-medium text-[#3a5068] font-mono hover:text-[#123d6b] hover:underline transition-colors"
+          >
+            {row.quotationNumber ?? row.quotationId}
+          </a>
+        ),
     },
     {
       key: 'insured', header: 'Insured', minWidth: 160, sortable: true,
