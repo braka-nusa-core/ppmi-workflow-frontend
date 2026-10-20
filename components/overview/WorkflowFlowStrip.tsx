@@ -143,7 +143,9 @@ export function WorkflowFlowStrip({ quotation, demo }: WorkflowFlowStripProps) {
         </div>
       </div>
 
-      <div className="px-5 py-4 overflow-x-auto">
+      {/* [contain:inline-size] stops the 9-node strip's intrinsic width (min-w-max)
+          from widening the dashboard grid column; it scrolls inside this card. */}
+      <div className="px-5 py-4 overflow-x-auto [contain:inline-size]">
         <div className="flex items-stretch gap-1.5 min-w-max">
           {nodes.map((node, i) => (
             <Fragment key={node.key}>
