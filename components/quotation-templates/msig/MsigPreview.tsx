@@ -4,6 +4,7 @@
 // preview is one continuous page; the exported PDF paginates onto A4.
 
 import type { CSSProperties } from 'react'
+import { ScaledPaper } from '@/components/quotation-templates/shared/ScaledPaper'
 import type { MsigDocBlock, MsigDocument } from '@/lib/quotation-templates/msig/types'
 
 const FONT: CSSProperties = { fontFamily: '"Liberation Sans", Arial, Helvetica, sans-serif', fontSize: '10.1pt', lineHeight: '13.5pt', color: '#000' }
@@ -65,10 +66,11 @@ function Block({ b }: { b: MsigDocBlock }) {
 export function MsigPreview({ document }: { document: MsigDocument }) {
   const cols = [37.2, 189.2, 364.5]
   return (
-    <div className="overflow-x-auto">
+    <ScaledPaper>
       <div
-        data-testid="msig-preview"
-        style={{ ...FONT, position: 'relative', width: '595.28pt', margin: '0 auto', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,.18)', padding: '140pt 61.3pt 120pt 57.1pt' }}
+        data-testid="template-preview"
+        data-template="msig"
+        style={{ ...FONT, position: 'relative', width: '595.28pt', background: '#fff', boxShadow: '0 1px 6px rgba(0,0,0,.18)', padding: '140pt 61.3pt 120pt 57.1pt' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/pdf-assets/ppmi-header.png" alt="PT Pandi Proteksi Marine Indonesia" style={{ position: 'absolute', left: '39.1pt', top: '7.4pt', width: '185.8pt', height: '106.8pt' }} />
@@ -87,7 +89,7 @@ export function MsigPreview({ document }: { document: MsigDocument }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/pdf-assets/ppmi-ship.png" alt="" style={{ position: 'absolute', left: '507.8pt', bottom: '8pt', width: '55.2pt', height: '71.1pt' }} />
         </div>
-      </div>
-    </div>
+        </div>
+    </ScaledPaper>
   )
 }

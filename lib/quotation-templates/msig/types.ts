@@ -10,6 +10,8 @@
 // Element ids (M01…M37) refer to the Phase 2 specification.
 // ═══════════════════════════════════════════════════════════════
 
+import type { PdfFooterColumn, PdfFooterSegment } from '../shared/types'
+
 /** Existing PniClubFormat code (types/pni.ts) this template belongs to. */
 export const MSIG_CLUB_FORMAT = 'MSIG_SPECIALTY_MARINE_NV' as const
 
@@ -59,8 +61,8 @@ export type MsigVesselFieldKey =
 export type MsigSection = 'quotation' | 'pni' | 'war' | 'closing'
 
 export interface MsigParagraph { text: string; bold?: boolean }
-export interface MsigFooterSegment { text: string; sup?: boolean }
-export interface MsigFooterColumn { heading: string; lines: MsigFooterSegment[][] }
+export type MsigFooterSegment = PdfFooterSegment
+export type MsigFooterColumn = PdfFooterColumn
 
 export type MsigTemplateElement =
   | { kind: 'title'; id: string; section: MsigSection; gapBefore?: number; text: string }

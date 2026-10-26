@@ -5,10 +5,11 @@
 
 import React from 'react'
 import type { DocumentProps } from '@react-pdf/renderer'
-import { Document, Font, Image, Line, Page, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
+import { Document, Line, Page, StyleSheet, Svg, Text, View } from '@react-pdf/renderer'
 import type { MsigDocBlock, MsigDocument } from '@/lib/quotation-templates/msig/types'
+import { PDF_FAMILY, PpmiPageChrome, registerPpmiPdfFonts } from '@/components/quotation-templates/shared/PpmiPdfChrome'
 
-const FAMILY = 'LiberationSans' // SIL-OFL, metric-compatible with Arial (embedded in the PDF)
+const FAMILY = PDF_FAMILY
 
 // ─── Measured layout (pt) ───────────────────────────────────────
 const G = {
@@ -25,22 +26,6 @@ const S = StyleSheet.create({
   value: { flex: 1 },
   bold: { fontWeight: 700 },
 })
-
-let registeredBase: string | null = null
-/** Registers fonts once per asset base. Hyphenation is disabled so wording is never altered. */
-export function registerMsigPdfFonts(assetBase: string): void {
-  if (registeredBase === assetBase) return
-  Font.register({
-    family: FAMILY,
-    fonts: [
-      { src: `${assetBase}/fonts/LiberationSans-Regular.ttf`, fontWeight: 400 },
-      { src: `${assetBase}/fonts/LiberationSans-Bold.ttf`, fontWeight: 700 },
-      { src: `${assetBase}/fonts/LiberationSans-BoldItalic.ttf`, fontWeight: 700, fontStyle: 'italic' },
-    ],
-  })
-  Font.registerHyphenationCallback((word) => [word])
-  registeredBase = assetBase
-}
 
 type Row = Extract<MsigDocBlock, { type: 'row' }>
 
@@ -132,27 +117,10 @@ function Block({ b }: { b: MsigDocBlock }) {
 }
 
 export function MsigPdfDocument({ document, assetBase }: { document: MsigDocument; assetBase: string }) {
-  const colX = [37.2, 189.2, 364.5]
   return (
     <Document title="MSIG P&I Quotation" author="PT Pandi Proteksi Marine Indonesia">
       <Page size="A4" style={S.page}>
-        {/* header / footer artwork + text repeat on every page */}
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image, not an HTML <img> */}
-        <Image fixed src={`${assetBase}/ppmi-header.png`} style={{ position: 'absolute', left: 39.1, top: 7.4, width: 185.8, height: 106.8 }} />
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image, not an HTML <img> */}
-        <Image fixed src={`${assetBase}/ppmi-ship.png`} style={{ position: 'absolute', left: 507.8, top: 758.6, width: 55.2, height: 71.1 }} />
-        {document.footer.map((col, ci) => (
-          <View fixed key={ci} style={{ position: 'absolute', left: colX[ci], top: 795.5 }}>
-            <Text style={{ fontFamily: FAMILY, fontSize: 11, fontWeight: 700, color: '#A97B50', lineHeight: 1.1 }}>{col.heading}</Text>
-            {col.lines.map((line, li) => (
-              <View key={li} style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: li === 0 ? 3 : 0 }}>
-                {line.map((seg, si) => (
-                  <Text key={si} style={{ fontFamily: FAMILY, fontSize: seg.sup ? 4.6 : 7.9, color: '#231F20', lineHeight: seg.sup ? 1 : 10.3 / 7.9 }}>{seg.text}</Text>
-                ))}
-              </View>
-            ))}
-          </View>
-        ))}
+        <PpmiPageChrome footer={document.footer} assetBase={assetBase} />
         {document.blocks.map((b, i) => (
           <Block key={i} b={b} />
         ))}
@@ -163,6 +131,6 @@ export function MsigPdfDocument({ document, assetBase }: { document: MsigDocumen
 
 /** Element typed as a react-pdf Document so it can be passed straight to pdf(). */
 export function createMsigPdfElement(document: MsigDocument, assetBase: string) {
-  registerMsigPdfFonts(assetBase)
+  registerPpmiPdfFonts(assetBase)
   return <MsigPdfDocument document={document} assetBase={assetBase} /> as unknown as React.ReactElement<DocumentProps>
 }
