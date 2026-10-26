@@ -15,6 +15,7 @@ export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const
 export const DIVISIONS = {
   PI: { key: 'PI' as const, label: 'P&I', fullLabel: 'Protection & Indemnity' },
   HM: { key: 'HM' as const, label: 'H&M', fullLabel: 'Hull & Machinery' },
+  CARGO: { key: 'CARGO' as const, label: 'Cargo', fullLabel: 'Cargo' },
 }
 
 // ─── Currency ─────────────────────────────────────────────────────

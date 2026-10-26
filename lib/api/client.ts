@@ -82,6 +82,11 @@ export async function post<T>(url: string, data?: unknown, config?: AxiosRequest
   return res.data
 }
 
+export async function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  const res = await apiClient.put<T>(url, data, config)
+  return res.data
+}
+
 export async function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   const res = await apiClient.patch<T>(url, data, config)
   return res.data

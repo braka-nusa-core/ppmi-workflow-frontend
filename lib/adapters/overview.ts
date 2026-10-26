@@ -14,8 +14,8 @@ import type { BackendStats, BackendWorkspace, BackendWorkflowStage, BackendActiv
 const STAGE_LABEL_MAP: Record<string, WorkflowStage> = {
   'Quotation Sheet': 'QS',
   'Invoice':         'INVOICE',
-  'Voucher':         'VOUCHER',
-  'Payment':         'PAYMENT',
+  'Voucher':         'VOUCHER_INVOICE',
+  'Payment':         'INCOMING_PAYMENT',
   'Shipment':        'SHIPMENT',
 }
 
