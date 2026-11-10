@@ -9,29 +9,8 @@
 // components/ or the renderers should need to change.
 // ═══════════════════════════════════════════════════════════════
 
-export interface SavedTemplateQuotation<TData> {
-  id: string
-  templateId: string
-  /** Pinned at creation; opening/saving never silently switches it. */
-  templateVersion: string
-  data: TData
-  savedAt: string
-}
-
-export interface TemplateSaveInput<TData> {
-  id?: string
-  templateId: string
-  templateVersion: string
-  data: TData
-}
-
-export interface TemplateRepository<TData, TTemplate> {
-  /** `version` omitted → latest available; given → exactly that version or null. */
-  getTemplate(templateId: string, version?: string): Promise<TTemplate | null>
-  listQuotations(): Promise<SavedTemplateQuotation<TData>[]>
-  getQuotation(id: string): Promise<SavedTemplateQuotation<TData> | null>
-  saveQuotation(input: TemplateSaveInput<TData>): Promise<SavedTemplateQuotation<TData>>
-}
+import type { SavedTemplateQuotation, TemplateRepository, TemplateSaveInput } from './repositoryTypes'
+export type { SavedTemplateQuotation, TemplateRepository, TemplateSaveInput } from './repositoryTypes'
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T
 

@@ -1,3 +1,4 @@
+// FILE: components/quotations/QuotationForm.tsx
 'use client'
 
 import { useEffect } from 'react'
@@ -13,6 +14,8 @@ import { useAuth } from '@/context/AuthContext'
 import { PageSpinner } from '@/components/ui/Spinner'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { useClients } from '@/hooks/useClients'
+import { useClientPrefill } from '@/hooks/useClientPrefill'
+import { ClientPrefillNotice } from '@/components/clients/ClientPrefillNotice'
 import { useInsuranceTypes } from '@/hooks/useInsuranceTypes'
 import { useCreateQuotation, useUpdateQuotation } from '@/hooks/useQuotations'
 import {
@@ -91,6 +94,15 @@ function CreateQuotationForm() {
       defaultValues: { clientMode: 'existing' },
     })
   const clientMode = watch('clientMode')
+  const clientPrefill = useClientPrefill(clients, (id) => {
+    setValue('clientMode', 'existing')
+    setValue('clientId', id, { shouldValidate: true })
+  }, () => {
+    // No match: clear the select so the browser's first-option default
+    // (the placeholder option is disabled) isn't mistaken for a selection.
+    setValue('clientMode', 'existing')
+    setValue('clientId', '')
+  })
 
   // quotation:create gate — UX only, backend is authoritative.
   // Found during Phase 3D audit: the /new route had no permission
@@ -125,6 +137,14 @@ function CreateQuotationForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <FormSection title="Client" description="Link an existing client, or provide a new one inline" columns={1}>
+        <ClientPrefillNotice
+          state={clientPrefill}
+          onUseAsNew={(name) => {
+            setValue('clientMode', 'new')
+            setValue('clientId', undefined)
+            setValue('client.name', name, { shouldValidate: true })
+          }}
+        />
         <FormField label="Client Source">
           <div className="flex gap-2">
             {(['existing', 'new'] as const).map((mode) => (

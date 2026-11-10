@@ -31,14 +31,31 @@ import { optionalNonNegativeNumber } from './numeric'
 // / toCreateQuotationPayload once the form exists).
 // ═══════════════════════════════════════════════════════════════
 
-const clubFormatSchema = z.enum([
-  'INIGO_SYNDICATE_1301',
-  'EAGLE_OCEAN_MARINE',
-  'MSIG_SPECIALTY_MARINE_NV',
-])
+// Backend `pni.clubCode` is a plain non-empty string validated against the
+// `club` table server-side (400 "Unknown P&I club") — not a fixed enum.
+const clubCodeSchema = z.string().min(1, 'P&I club is required')
 
 const jsonSchema = z.record(z.string(), z.unknown())
 const identifierSchema = z.string().min(1)
+
+// Empty <input type="number" {...register(name, { valueAsNumber: true })}> yields NaN,
+// which a bare z.number().optional() rejects without any visible message. Same
+// NaN → undefined guard as optionalNonNegativeNumber, for the integer fields.
+const nanToUndefined = (val: unknown) =>
+  (typeof val === 'number' && Number.isNaN(val)) || val === null ? undefined : val
+
+// ISO currency code: a blank input ('') means "not provided", not an invalid code.
+const optionalCurrency = z.preprocess(
+  (val) => (val === '' ? undefined : val),
+  z.string().length(3).optional(),
+)
+
+// Optional ref <select>s ("None" placeholder is a disabled <option value="">) report ''
+// when nothing is chosen, which identifierSchema (min 1) rejects. '' means "no reference".
+const optionalRef = z.preprocess(
+  (val) => (val === '' ? null : val),
+  identifierSchema.nullable().optional(),
+)
 
 // clientId XOR client — same inline-client shape as
 // lib/validations/quotation.ts's inlineClientSchema (requiredness
@@ -68,13 +85,11 @@ export const pniQuotationFieldsSchema = z.object({
 })
 
 export const pniFieldsSchema = z.object({
-  clubFormat:            clubFormatSchema,
+  clubCode:              clubCodeSchema,
   referenceNumber:       z.string().optional(),
-  validityDays:          z.number().int().positive().optional(),
+  validityDays:          z.preprocess(nanToUndefined, z.number().int().positive().optional()),
   assuredDomicile:       z.string().optional(),
   broker:                z.string().optional(),
-  insurerOrSecurity:     z.string().optional(),
-  tradingLimits:         z.string().optional(),
   paymentTermsText:      z.string().optional(),
   subjectivities:        z.string().optional(),
   importantInformation:  z.string().optional(),
@@ -90,7 +105,7 @@ export const pniVesselSchema = z.object({
   name:               z.string().min(1, 'Vessel name is required'),
   imoNumber:          z.string().optional(),
   vesselType:         z.string().optional(),
-  builtYear:          z.number().int().min(1800).max(3000).optional(),
+  builtYear:          z.preprocess(nanToUndefined, z.number().int().min(1800).max(3000).optional()),
   flag:               z.string().optional(),
   vesselClass:        z.string().optional(),
   classNotApplicable: z.boolean().optional(),
@@ -103,14 +118,14 @@ export const pniVesselSchema = z.object({
 export const pniInsuranceBlockSchema = z.object({
   id:                     identifierSchema.optional(),
   key:                    identifierSchema.optional(),
-  inheritsFromBlockRef:   identifierSchema.nullable().optional(),
+  inheritsFromBlockRef:   optionalRef,
   typeOfInsurance:        z.string().min(1, 'Type of Insurance is required'),
   security:               z.string().optional(),
   policyWordingReference: z.string().optional(),
   tradingArea:            z.string().optional(),
   paymentWarrantyText:    z.string().optional(),
   maximumInsured:         optionalNonNegativeNumber,
-  currency:               z.string().length(3).optional(),
+  currency:               optionalCurrency,
   premium:                optionalNonNegativeNumber,
   premiumBasis: z
     .enum(['PER_ANNUM', 'PER_VESSEL_PER_ANNUM', 'PRO_RATA', 'INCLUDED_NO_ADDITIONAL_CHARGE', 'OTHER'])
@@ -129,7 +144,7 @@ export const pniVesselCoverageSchema = z.object({
   insuranceBlockRef: identifierSchema,
   annualPremium:     optionalNonNegativeNumber,
   limitAmount:       optionalNonNegativeNumber,
-  currency:          z.string().length(3).optional(),
+  currency:          optionalCurrency,
   details:           jsonSchema.optional(),
 })
 
@@ -156,7 +171,7 @@ const scopedVesselRefsRefinement = <
 export const pniProvisionSchema = z
   .object({
     id:                identifierSchema.optional(),
-    insuranceBlockRef: identifierSchema.nullable().optional(),
+    insuranceBlockRef: optionalRef,
     type:              z.enum(['CONDITION', 'CLAUSE', 'EXCLUSION', 'WARRANTY']),
     source:            z.enum(['PREDEFINED', 'CUSTOM']).optional(),
     scope:             z.enum(['QUOTE', 'ALL_VESSELS', 'SELECTED_VESSELS']).optional(),
@@ -176,7 +191,7 @@ export const pniDeductibleSchema = z
     scope:             z.enum(['FLAT', 'CLAIM_CATEGORY', 'ALL_VESSELS', 'SELECTED_VESSELS']),
     claimCategory:     z.string().optional(),
     amount:            optionalNonNegativeNumber,
-    currency:          z.string().length(3).optional(),
+    currency:          optionalCurrency,
     description:       z.string().optional(),
     sortOrder:         z.number().int().min(0).optional(),
     vesselRefs:        z.array(identifierSchema).optional(),
@@ -187,7 +202,7 @@ export const pniInstallmentSchema = z.object({
   id:            identifierSchema.optional(),
   installmentNo: z.number().int().positive(),
   amount:        optionalNonNegativeNumber,
-  currency:      z.string().length(3).optional(),
+  currency:      optionalCurrency,
   dueDate:       z.string().optional(),
 })
 
@@ -207,7 +222,7 @@ export const pniOrganizationRoleSchema = z.object({
 
 export const pniCoverRestrictionSchema = z.object({
   id:                identifierSchema.optional(),
-  insuranceBlockRef: identifierSchema.nullable().optional(),
+  insuranceBlockRef: optionalRef,
   name:              z.string().min(1, 'Name is required'),
   partReference:     z.string().optional(),
   sectionReference:  z.string().optional(),

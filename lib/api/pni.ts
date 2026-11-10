@@ -1,3 +1,4 @@
+// FILE: lib/api/pni.ts
 // ═══════════════════════════════════════════════════════════════
 // P&I API LAYER
 //
@@ -6,8 +7,8 @@
 // lib/api/quotations.ts — no React Query, no UI logic here.
 //
 // Endpoints implemented here are exactly what exists in
-// pni.controller.ts today: club-formats, club-formats/:clubFormat/
-// template, quotations (list/get/create/update). There is no
+// pni.controller.ts today: clubs, clubs/:clubCode/template,
+// quotations (list/get/create/update). There is no
 // separate submit/approve/etc. for P&I — those are the shared
 // /quotations/:id/* workflow endpoints in lib/api/quotations.ts.
 // ═══════════════════════════════════════════════════════════════
@@ -15,7 +16,7 @@
 import { get, post, patch } from './client'
 import { fromWire } from './wireMapper'
 import type {
-  PniClubFormatOption,
+  PniClub,
   PniTemplate,
   PniQuotationListItem,
   PniQuotationDetail,
@@ -33,23 +34,23 @@ interface Envelope<T> {
 
 // ─── Reference data ─────────────────────────────────────────────
 
-/** GET /pni/club-formats — the 3 supported P&I club formats (hardcoded on the backend, not a DB table). */
-export async function fetchPniClubFormats(): Promise<PniClubFormatOption[]> {
-  const res = await get<Envelope<unknown[]>>(`${BASE}/club-formats`)
-  return fromWire<PniClubFormatOption[]>(res.data)
+/** GET /pni/clubs — active clubs from the `club` table, ordered by code (permission: quotation:read). */
+export async function fetchPniClubs(): Promise<PniClub[]> {
+  const res = await get<Envelope<unknown[]>>(`${BASE}/clubs`)
+  return fromWire<PniClub[]>(res.data)
 }
 
-/** GET /pni/club-formats/:clubFormat/template — QsTemplate rows for one club format. */
-export async function fetchPniClubFormatTemplate(
-  clubFormat: string
+/** GET /pni/clubs/:clubCode/template — QsTemplate rows of one club. 400 "Unknown P&I club" if the code is unknown or soft-deleted. */
+export async function fetchPniClubTemplate(
+  clubCode: string
 ): Promise<PniTemplate[]> {
-  const res = await get<Envelope<unknown[]>>(`${BASE}/club-formats/${clubFormat}/template`)
+  const res = await get<Envelope<unknown[]>>(`${BASE}/clubs/${encodeURIComponent(clubCode)}/template`)
   return fromWire<PniTemplate[]>(res.data)
 }
 
 // ─── Quotations ──────────────────────────────────────────────────
 
-/** GET /pni/quotations — list, slim shape (id/clubFormat/referenceNumber only for the P&I detail). */
+/** GET /pni/quotations — list, slim shape (club/referenceNumber only for the P&I detail). */
 export async function fetchPniQuotations(): Promise<PniQuotationListItem[]> {
   const res = await get<Envelope<unknown[]>>(`${BASE}/quotations`)
   return fromWire<PniQuotationListItem[]>(res.data)

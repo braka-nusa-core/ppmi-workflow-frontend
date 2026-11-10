@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, FileText, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -18,6 +18,7 @@ import { isQuotationEditableByUser } from '@/lib/quotationEditability'
 import { getQuotationStatusLabel, QUOTATION_STATUS_BADGE_VARIANT } from '@/lib/quotationStatus'
 import { formatDateTime } from '@/lib/format'
 import { ROUTES } from '@/config/routes'
+import { getPniTemplateAdapter } from '@/components/quotation-templates/pniTemplates'
 import {
   QuotationOverviewPanel,
   QuotationClientPanel,
@@ -156,6 +157,22 @@ export function PniQuotationDetailClient({ quotationId }: Props) {
             <Button variant="ghost" size="sm" icon={<ArrowLeft size={13} />} onClick={() => router.push(ROUTES.quotations.list)}>
               Back to list
             </Button>
+            {pni && (getPniTemplateAdapter(pni.club.code) ? (
+              <Button variant="secondary" size="sm" icon={<FileText size={13} />} onClick={() => router.push(ROUTES.quotations.pniTemplate(quotationId))}>
+                Insurer Template
+              </Button>
+            ) : (
+              // No paper exists for this club yet (only MSIG and Eagle Ocean Marine). Shown disabled with the
+              // reason instead of hidden, so the missing template is explained rather than looking like a bug.
+              <>
+                <Button variant="secondary" size="sm" icon={<FileText size={13} />} disabled title={`No insurer template for ${pni.club.name} yet`} data-testid="insurer-template-unavailable">
+                  Insurer Template
+                </Button>
+                <span className="hidden md:inline text-[11px] text-[#9aa3ad]" data-testid="insurer-template-unavailable-note">
+                  No template for {pni.club.name} yet
+                </span>
+              </>
+            ))}
             {canEdit && (
               <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={() => router.push(ROUTES.quotations.pniEdit(quotationId))}>
                 Edit

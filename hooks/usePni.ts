@@ -1,3 +1,4 @@
+// FILE: hooks/usePni.ts
 // ═══════════════════════════════════════════════════════════════
 // P&I REACT QUERY HOOKS
 //
@@ -24,26 +25,26 @@ export const pniKeys = {
   lists:     () => [...pniKeys.all, 'list'] as const,
   details:   () => [...pniKeys.all, 'detail'] as const,
   detail:    (quotationId: string) => [...pniKeys.details(), quotationId] as const,
-  clubFormats: ['pni', 'club-formats'] as const,
-  template:  (clubFormat: string) => ['pni', 'club-formats', clubFormat, 'template'] as const,
+  clubs:     ['pni', 'clubs'] as const,
+  template:  (clubCode: string) => ['pni', 'clubs', clubCode, 'template'] as const,
 }
 
 // ─── Reference data ─────────────────────────────────────────────
 
-/** Used by the P&I create form's club-format selector (Phase 2B). */
-export function usePniClubFormats() {
+/** Used by the P&I create form's club selector. */
+export function usePniClubs() {
   return useQuery({
-    queryKey: pniKeys.clubFormats,
-    queryFn:  api.fetchPniClubFormats,
+    queryKey: pniKeys.clubs,
+    queryFn:  api.fetchPniClubs,
   })
 }
 
-/** Used once a club format is chosen, to load its standing template (Phase 2B). */
-export function usePniClubFormatTemplate(clubFormat: string | undefined) {
+/** Used once a club is chosen, to load its standing template. */
+export function usePniClubTemplate(clubCode: string | undefined) {
   return useQuery({
-    queryKey: pniKeys.template(clubFormat ?? ''),
-    queryFn:  () => api.fetchPniClubFormatTemplate(clubFormat as string),
-    enabled:  Boolean(clubFormat),
+    queryKey: pniKeys.template(clubCode ?? ''),
+    queryFn:  () => api.fetchPniClubTemplate(clubCode as string),
+    enabled:  Boolean(clubCode),
   })
 }
 

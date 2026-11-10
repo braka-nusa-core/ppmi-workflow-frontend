@@ -1,3 +1,4 @@
+// FILE: config/navigation.ts
 import type { UserRole } from '@/types/workflow'
 import { ROUTES } from '@/config/routes'
 
@@ -28,6 +29,7 @@ export const FULL_NAV_CONFIG: NavGroupConfig[] = [
   {
     label: 'Workflow',
     items: [
+      { label: 'Clients', href: ROUTES.clients.list, iconName: 'Building2', requiredPermission: 'client:read' },
       { label: 'Quotation Sheet', href: ROUTES.quotations.list, iconName: 'FileText' },
       { label: 'Policy Placement', href: ROUTES.policy.list,  iconName: 'Shield'   },
       { label: 'Request For Invoice', href: ROUTES.rfi.list, iconName: 'ClipboardList' },

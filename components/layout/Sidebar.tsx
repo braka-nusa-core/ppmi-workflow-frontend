@@ -18,12 +18,14 @@ import {
   Shield,
   ClipboardList,
   ArrowUpCircle,
+  Building2,
   ChevronsLeft,
   ChevronsRight,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRole } from '@/hooks/useRole'
+import { useAuth } from '@/context/AuthContext'
 import { getNavForRole, type NavItemConfig } from '@/config/navigation'
 
 // Maps config/navigation.ts's iconName strings to actual icon components.
@@ -41,6 +43,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Shield,
   ClipboardList,
   ArrowUpCircle,
+  Building2,
 }
 
 type TipHandler = (label: string | null, el?: HTMLElement) => void
@@ -96,7 +99,18 @@ function SidebarNavItem({ item, collapsed, onTip }: { item: NavItemConfig; colla
 
 export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void }) {
   const { role } = useRole()
-  const navGroups = role ? getNavForRole(role) : []
+  const { can } = useAuth()
+  // Items with `requiredPermission` ("resource:action") are hidden without it.
+  const navGroups = (role ? getNavForRole(role) : [])
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((i) => {
+        if (!i.requiredPermission) return true
+        const [resource, action] = i.requiredPermission.split(':')
+        return can(resource, action)
+      }),
+    }))
+    .filter((g) => g.items.length > 0)
   const [tip, setTip] = useState<{ label: string; top: number } | null>(null)
   const showTip: TipHandler = (label, el) => {
     if (!label || !el) return setTip(null)

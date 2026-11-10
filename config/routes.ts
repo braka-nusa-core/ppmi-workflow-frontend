@@ -38,8 +38,11 @@ export const ROUTES = {
     // quotation's nested vessels/insurance blocks/etc. `detail` above
     // is still the shared landing page after a P&I save, per the
     // existing quotation detail architecture (base Quotation id).
-    pniNew:  '/dashboard/quotations/pni/new',
+    // P&I creation = the insurer-template page (client's required flow). The old form at /pni/new now redirects here.
+    pniNew: '/dashboard/quotations/pni/template-prototype',
     pniEdit: (id: string) => `/dashboard/quotations/pni/${id}/edit`,
+    // Insurer paper (MSIG / Eagle) rendered from the saved P&I quotation.
+    pniTemplate: (id: string) => `/dashboard/quotations/pni/${id}/template`,
     // H&M-specific create/edit (Phase 3B) — two-step create
     // (POST /quotations then POST /hm/quotations/:id) behind one form.
     hmNew:   '/dashboard/quotations/hm/new',
@@ -47,6 +50,12 @@ export const ROUTES = {
     // Cargo-specific create/edit — pages already exist at these paths.
     cargoNew:  '/dashboard/quotations/cargo/new',
     cargoEdit: (id: string) => `/dashboard/quotations/cargo/${id}/edit`,
+  },
+
+  // Client Management directory (GET /clients, /vessel-policies, /vessels).
+  clients: {
+    list:   '/dashboard/clients',
+    detail: (id: string) => `/dashboard/clients/${id}`,
   },
 
   policy: {

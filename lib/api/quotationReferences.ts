@@ -1,3 +1,4 @@
+// FILE: lib/api/quotationReferences.ts
 // ═══════════════════════════════════════════════════════════════
 // QUOTATION REFERENCES API LAYER
 //
@@ -41,7 +42,7 @@ export async function fetchQuotationSurveyors(): Promise<QuotationReferenceConta
 /**
  * GET /quotation-references/templates/:domain
  * `domain` MUST be 'HULL_MACHINERY' or 'CARGO' — the backend 400s on
- * anything else (P&I has its own /pni/club-formats/:clubFormat/template
+ * anything else (P&I has its own /pni/clubs/:clubCode/template
  * endpoint, not this one). Throws (404) if no template row exists yet.
  */
 export async function fetchQuotationTemplate(

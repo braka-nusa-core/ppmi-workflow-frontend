@@ -67,7 +67,7 @@ export interface QuotationReferenceContact {
 /**
  * Matches `model QsTemplate`. Returned by GET /quotation-references/templates/:domain
  * (domain restricted server-side to HULL_MACHINERY | CARGO — P&I templates use the
- * separate /pni/club-formats/:clubFormat/template endpoint instead, not this one).
+ * separate /pni/clubs/:clubCode/template endpoint instead, not this one).
  * `content` is schema-less (Prisma Json) — narrow it yourself per domain in Phase 2.
  */
 export interface QsTemplate {
@@ -75,7 +75,7 @@ export interface QsTemplate {
   name:            string
   templateVersion: string | null
   templateDomain:  'PNI' | 'HULL_MACHINERY' | 'CARGO' | null
-  pniClubFormat:   string | null
+  clubId:          string | null
   content:         unknown
   createdAt:       string
   updatedAt:       string

@@ -1,3 +1,4 @@
+// FILE: types/pni.ts
 // ═══════════════════════════════════════════════════════════════
 // P&I (PROTECTION & INDEMNITY) DOMAIN TYPES
 //
@@ -24,10 +25,11 @@ import type {
 
 // ─── Enums (exact backend values) ──────────────────────────────
 
-export type PniClubFormat =
-  | 'INIGO_SYNDICATE_1301'
-  | 'EAGLE_OCEAN_MARINE'
-  | 'MSIG_SPECIALTY_MARINE_NV'
+/**
+ * Backend `club.code` (seeded: MSIG, EOM, HYDOR; INIGO is soft-deleted).
+ * Data-driven from GET /pni/clubs — deliberately not a closed union.
+ */
+export type PniClubCode = string
 
 export type PniPremiumBasis =
   | 'PER_ANNUM'
@@ -41,10 +43,18 @@ export type PniProvisionSource = 'PREDEFINED' | 'CUSTOM'
 export type PniProvisionScope = 'QUOTE' | 'ALL_VESSELS' | 'SELECTED_VESSELS'
 export type PniDeductibleScope = 'FLAT' | 'CLAIM_CATEGORY' | 'ALL_VESSELS' | 'SELECTED_VESSELS'
 
-/** Display names are hardcoded on the backend (pni.service.ts CLUB_FORMATS), not stored in the DB — returned as-is by GET /pni/club-formats. */
-export interface PniClubFormatOption {
-  code:        PniClubFormat
-  displayName: string
+/** GET /pni/clubs — active rows of the `club` table (select: id, code, name). */
+export interface PniClub {
+  id:   string
+  code: PniClubCode
+  name: string
+}
+
+/** Template the backend linked to a P&I quotation at creation (latest for its club; null if the club has none). */
+export interface PniQuotationTemplateRef {
+  id:              string
+  name:            string
+  templateVersion: string | null
 }
 
 // ─── Response shapes (GET /pni/quotations/:quotationId) ───────
@@ -207,13 +217,12 @@ export interface PniOrganizationRole {
 export interface PniQuotationDetail {
   id:                   string
   quotationId:          string
-  clubFormat:           PniClubFormat
+  club:                 PniClub
+  qsTemplate:           PniQuotationTemplateRef | null
   referenceNumber:      string | null
   validityDays:         number | null
   assuredDomicile:      string | null
   broker:               string | null
-  insurerOrSecurity:    string | null
-  tradingLimits:        string | null
   paymentTermsText:     string | null
   subjectivities:       string | null
   importantInformation: string | null
@@ -252,7 +261,7 @@ export interface PniQuotationListItem {
   insuranceType:   QuotationInsuranceTypeRef
   pniQuotation: {
     id:              string
-    clubFormat:      PniClubFormat
+    club:            PniClub
     referenceNumber: string | null
   }
   status:          string
@@ -260,13 +269,13 @@ export interface PniQuotationListItem {
   [key: string]:   unknown
 }
 
-/** GET /pni/club-formats/:clubFormat/template — QsTemplate rows filtered by pniClubFormat. */
+/** GET /pni/clubs/:clubCode/template — QsTemplate rows of that club (ordered by updatedAt desc). */
 export interface PniTemplate {
   id:              string
   name:            string
   templateVersion: string | null
   templateDomain:  'PNI' | 'HULL_MACHINERY' | 'CARGO' | null
-  pniClubFormat:   PniClubFormat | null
+  clubId:          string | null
   content:         unknown
   createdAt:       string
   updatedAt:       string
@@ -303,13 +312,11 @@ export interface PniQuotationFieldsInput {
 }
 
 export interface CreatePniFieldsInput {
-  clubFormat:            PniClubFormat
+  clubCode:              PniClubCode
   referenceNumber?:      string
   validityDays?:         number
   assuredDomicile?:      string
   broker?:               string
-  insurerOrSecurity?:    string
-  tradingLimits?:        string
   paymentTermsText?:     string
   subjectivities?:       string
   importantInformation?: string

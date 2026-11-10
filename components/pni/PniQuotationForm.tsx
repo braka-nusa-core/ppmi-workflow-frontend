@@ -14,8 +14,10 @@ import { ErrorState } from '@/components/feedback/ErrorState'
 import { useToast } from '@/context/ToastContext'
 import { useAuth } from '@/context/AuthContext'
 import { useClients } from '@/hooks/useClients'
+import { useClientPrefill } from '@/hooks/useClientPrefill'
+import { ClientPrefillNotice } from '@/components/clients/ClientPrefillNotice'
 import { useInsuranceTypes } from '@/hooks/useInsuranceTypes'
-import { useCreatePniQuotation, useUpdatePniQuotation, usePniClubFormats, usePniClubFormatTemplate } from '@/hooks/usePni'
+import { useCreatePniQuotation, useUpdatePniQuotation, usePniClubs, usePniClubTemplate } from '@/hooks/usePni'
 import {
   createPniQuotationFormSchema,
   updatePniQuotationFormSchema,
@@ -32,10 +34,11 @@ import { PniInstallmentsSection, PniRequiredDocumentsSection, PniOrganizationRol
 import type { PniQuotationDetail, CreatePniQuotationPayload, UpdatePniQuotationPayload } from '@/types/pni'
 import type { ApiError } from '@/types/api'
 
-const CLUB_FORMAT_HELP: Record<string, string> = {
-  INIGO_SYNDICATE_1301:     'Adhiguna-style fleet quote — vessel-scoped clauses/deductibles.',
-  EAGLE_OCEAN_MARINE:       'Bhina-style quote — claim-category deductibles.',
-  MSIG_SPECIALTY_MARINE_NV: 'Karya-style quote — supports a separate War P&I block via block inheritance.',
+// Keyed by backend `club.code` (GET /pni/clubs). Clubs without an entry simply show no hint.
+const CLUB_HELP: Record<string, string> = {
+  INIGO: 'Adhiguna-style fleet quote — vessel-scoped clauses/deductibles.',
+  EOM:   'Bhina-style quote — claim-category deductibles.',
+  MSIG:  'Karya-style quote — supports a separate War P&I block via block inheritance.',
 }
 
 // ─── Payload builders ────────────────────────────────────────────
@@ -78,6 +81,13 @@ function toCreatePayload(data: CreatePniQuotationFormData): CreatePniQuotationPa
   }
 }
 
+function omitClubCode(pni: UpdatePniQuotationFormData['pni']): UpdatePniQuotationPayload['pni'] {
+  if (!pni) return undefined
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { clubCode, ...rest } = pni
+  return Object.keys(rest).length > 0 ? rest : undefined
+}
+
 function toUpdatePayload(data: UpdatePniQuotationFormData): UpdatePniQuotationPayload {
   return {
     quotation: {
@@ -94,7 +104,10 @@ function toUpdatePayload(data: UpdatePniQuotationFormData): UpdatePniQuotationPa
       brokerage:       data.brokerage,
       templateVersion: data.templateVersion || undefined,
     },
-    pni:               data.pni,
+    // clubCode is never re-sent on edit: the club is fixed at creation, and the
+    // backend re-resolves club + template whenever clubCode is present (and
+    // rejects a since-deactivated club with 400 "Unknown P&I club").
+    pni:               omitClubCode(data.pni),
     vessels:           data.vessels,
     insuranceBlocks:   data.insuranceBlocks,
     vesselCoverages:   data.vesselCoverages,
@@ -128,13 +141,11 @@ function detailToFormValues(pni: PniQuotationDetail): Partial<UpdatePniQuotation
     brokerage:       numOrUndef(pni.quotation.brokerage as string | number | null),
     templateVersion: (pni.quotation.templateVersion as string) ?? '',
     pni: {
-      clubFormat:            pni.clubFormat,
+      clubCode:              pni.club.code,
       referenceNumber:       pni.referenceNumber ?? '',
       validityDays:          pni.validityDays ?? undefined,
       assuredDomicile:       pni.assuredDomicile ?? '',
       broker:                pni.broker ?? '',
-      insurerOrSecurity:     pni.insurerOrSecurity ?? '',
-      tradingLimits:         pni.tradingLimits ?? '',
       paymentTermsText:      pni.paymentTermsText ?? '',
       subjectivities:        pni.subjectivities ?? '',
       importantInformation:  pni.importantInformation ?? '',
@@ -204,19 +215,28 @@ function CreatePniQuotationForm() {
   const router = useRouter()
   const { success, error: toastError } = useToast()
   const { allowed, isLoading: authLoading } = usePniAccessGate()
-  const { data: clients, isLoading: clientsLoading } = useClients()
+  const { data: clients, isLoading: clientsLoading, isError: clientsFailed } = useClients()
   const { data: insuranceTypes, isLoading: insuranceTypesLoading } = useInsuranceTypes()
-  const { data: clubFormats, isLoading: clubFormatsLoading } = usePniClubFormats()
+  const { data: clubs, isLoading: clubsLoading, isError: clubsFailed } = usePniClubs()
   const createMutation = useCreatePniQuotation()
 
   const { register, handleSubmit, control, setValue, watch, formState: { errors } } =
     useForm<CreatePniQuotationFormData>({
       resolver: zodResolver(createPniQuotationFormSchema),
-      defaultValues: { clientMode: 'existing', pni: { clubFormat: 'INIGO_SYNDICATE_1301' } },
+      defaultValues: { clientMode: 'existing', pni: { clubCode: '' } },
     })
   const clientMode = watch('clientMode')
-  const clubFormat = useWatch({ control, name: 'pni.clubFormat' })
-  const { data: template } = usePniClubFormatTemplate(clubFormat)
+  const clientPrefill = useClientPrefill(clients, (id) => {
+    setValue('clientMode', 'existing')
+    setValue('clientId', id, { shouldValidate: true })
+  }, () => {
+    // No match: clear the select so the browser's first-option default
+    // (the placeholder option is disabled) isn't mistaken for a selection.
+    setValue('clientMode', 'existing')
+    setValue('clientId', '')
+  }, clientsFailed)
+  const clubCode = useWatch({ control, name: 'pni.clubCode' })
+  const { data: template } = usePniClubTemplate(clubCode || undefined)
 
   if (authLoading) return <PageSpinner label="Loading…" />
   if (!allowed) {
@@ -249,6 +269,7 @@ function CreatePniQuotationForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <FormSection title="Client" description="Link an existing client, or provide a new one inline" columns={1}>
+        <ClientPrefillNotice state={clientPrefill} />
         <FormField label="Client Source">
           <div className="flex gap-2">
             {(['existing', 'new'] as const).map((mode) => (
@@ -304,14 +325,16 @@ function CreatePniQuotationForm() {
           />
         </FormField>
         <FormField
-          label="P&I Club Format"
+          label="P&I Club"
           required
-          hint={clubFormat ? CLUB_FORMAT_HELP[clubFormat] : undefined}
+          error={errors.pni?.clubCode?.message}
+          hint={clubsFailed ? 'Could not load P&I clubs.' : clubCode ? CLUB_HELP[clubCode] : undefined}
         >
           <Select
-            placeholder={clubFormatsLoading ? 'Loading…' : undefined}
-            options={(clubFormats ?? []).map((f) => ({ value: f.code, label: f.displayName }))}
-            {...register('pni.clubFormat')}
+            error={!!errors.pni?.clubCode}
+            placeholder={clubsLoading ? 'Loading…' : 'Select P&I club'}
+            options={(clubs ?? []).map((c) => ({ value: c.code, label: c.name }))}
+            {...register('pni.clubCode')}
           />
         </FormField>
         {template && template.length > 0 && (
@@ -335,8 +358,6 @@ function CreatePniQuotationForm() {
         <FormField label="Validity (Days)"><Input type="number" min={1} {...register('pni.validityDays', { valueAsNumber: true })} /></FormField>
         <FormField label="Assured Domicile"><Input {...register('pni.assuredDomicile')} /></FormField>
         <FormField label="Broker"><Input {...register('pni.broker')} /></FormField>
-        <FormField label="Insurer / Security" className="col-span-2"><Input {...register('pni.insurerOrSecurity')} /></FormField>
-        <FormField label="Trading Limits" className="col-span-2"><Input {...register('pni.tradingLimits')} /></FormField>
         <FormField label="Payment Terms Text" className="col-span-2"><Input {...register('pni.paymentTermsText')} /></FormField>
         <FormField label="Subjectivities" className="col-span-2"><Input {...register('pni.subjectivities')} /></FormField>
         <FormField label="Important Information" className="col-span-2"><Input {...register('pni.importantInformation')} /></FormField>
@@ -417,8 +438,8 @@ function EditPniQuotationForm({ pni }: { pni: PniQuotationDetail }) {
             {...register('clientId')}
           />
         </FormField>
-        <FormField label="P&I Club Format" hint="Set at creation — not changeable here.">
-          <Input value={pni.clubFormat} disabled />
+        <FormField label="P&I Club" hint="Set at creation — not changeable here.">
+          <Input value={pni.club.name} disabled />
         </FormField>
       </FormSection>
 
@@ -436,8 +457,6 @@ function EditPniQuotationForm({ pni }: { pni: PniQuotationDetail }) {
         <FormField label="Validity (Days)"><Input type="number" min={1} {...register('pni.validityDays', { valueAsNumber: true })} /></FormField>
         <FormField label="Assured Domicile"><Input {...register('pni.assuredDomicile')} /></FormField>
         <FormField label="Broker"><Input {...register('pni.broker')} /></FormField>
-        <FormField label="Insurer / Security" className="col-span-2"><Input {...register('pni.insurerOrSecurity')} /></FormField>
-        <FormField label="Trading Limits" className="col-span-2"><Input {...register('pni.tradingLimits')} /></FormField>
         <FormField label="Payment Terms Text" className="col-span-2"><Input {...register('pni.paymentTermsText')} /></FormField>
         <FormField label="Subjectivities" className="col-span-2"><Input {...register('pni.subjectivities')} /></FormField>
         <FormField label="Important Information" className="col-span-2"><Input {...register('pni.importantInformation')} /></FormField>

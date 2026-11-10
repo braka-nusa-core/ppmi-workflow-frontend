@@ -9,8 +9,8 @@
 
 import type { PdfFooterColumn } from '../shared/types'
 
-/** Existing PniClubFormat code (types/pni.ts) this template belongs to. */
-export const EAGLE_CLUB_FORMAT = 'EAGLE_OCEAN_MARINE' as const
+/** Backend club code (GET /pni/clubs → `code`) this template belongs to. */
+export const EAGLE_CLUB_FORMAT = 'EOM' as const
 
 // ─── Source wording (clauses.ts) ─────────────────────────────────
 
@@ -60,6 +60,8 @@ export interface EagleFormData {
   /** The unlabelled sum row under “Annual Premium USD”. Typed, never computed. */
   premiumTotal: string
   vessels: EagleVessel[]
+  /** Set only when a saved quotation is loaded: its Trading Area text replaces row E09. */
+  pniOverrides?: { tradingArea?: string }
 }
 
 // ─── Template ────────────────────────────────────────────────────

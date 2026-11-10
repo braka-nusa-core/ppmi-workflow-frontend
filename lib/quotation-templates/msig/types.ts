@@ -12,8 +12,8 @@
 
 import type { PdfFooterColumn, PdfFooterSegment } from '../shared/types'
 
-/** Existing PniClubFormat code (types/pni.ts) this template belongs to. */
-export const MSIG_CLUB_FORMAT = 'MSIG_SPECIALTY_MARINE_NV' as const
+/** Backend club code (GET /pni/clubs → `code`) this template belongs to. */
+export const MSIG_CLUB_FORMAT = 'MSIG' as const
 
 // ─── Form data (the only user-editable values) ───────────────────
 
@@ -39,6 +39,18 @@ export interface MsigCoverageAmounts {
   premiumAmount: string
 }
 
+/**
+ * Per-quotation values that REPLACE a fixed paper element when the saved
+ * quotation carries them (Security, Trading Limits/Area text; block currency).
+ * Never typed in the editor and never written back — set only when a saved
+ * quotation is loaded (see msig/fromPni.ts), so the editor preview, the PDF
+ * and the read-only template page all print the same thing.
+ */
+export interface MsigPniOverrides {
+  text: Record<string, string>
+  currency: Partial<Record<'pni' | 'war', string>>
+}
+
 export interface MsigFormData {
   reference: string            // M03 “Our Reference”
   assured: string              // M04 “Assured(s)”
@@ -47,6 +59,7 @@ export interface MsigFormData {
   pni: MsigCoverageAmounts     // M21–M23 (P&I block)
   war: MsigCoverageAmounts     // M30–M32 (War P&I block) — independent of pni
   issueDate: string            // M35, yyyy-mm-dd
+  pniOverrides?: MsigPniOverrides
 }
 
 export type MsigTextField = 'reference' | 'assured' | 'period'

@@ -39,17 +39,15 @@ function decimal(v: string | null): string {
   return Number.isNaN(n) ? v : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/** Reference/security/trading/payment/signature fields specific to this P&I quotation — data GET /quotations/:id cannot provide. */
+/** Reference/payment/signature fields specific to this P&I quotation — data GET /quotations/:id cannot provide. */
 export function PniOverviewPanel({ pni }: { pni: PniQuotationDetail }) {
   return (
-    <DetailSection icon={Shield} title={`P&I — ${pni.clubFormat.replaceAll('_', ' ')}`}>
+    <DetailSection icon={Shield} title={`P&I — ${pni.club.name}`}>
       <dl className="grid grid-cols-3 gap-4">
         <FieldRow label="Reference Number" value={pni.referenceNumber} />
         <FieldRow label="Validity (Days)" value={pni.validityDays} />
         <FieldRow label="Assured Domicile" value={pni.assuredDomicile} />
         <FieldRow label="Broker" value={pni.broker} />
-        <FieldRow label="Insurer / Security" value={pni.insurerOrSecurity} colSpan />
-        <FieldRow label="Trading Limits" value={pni.tradingLimits} colSpan />
         <FieldRow label="Payment Terms" value={pni.paymentTermsText} colSpan />
         <FieldRow label="Subjectivities" value={pni.subjectivities} colSpan />
         <FieldRow label="Important Information" value={pni.importantInformation} colSpan />
