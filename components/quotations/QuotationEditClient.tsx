@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { PageSpinner } from '@/components/ui/Spinner'
@@ -7,6 +8,7 @@ import { ErrorState } from '@/components/feedback/ErrorState'
 import { Button } from '@/components/ui/Button'
 import { QuotationForm } from '@/components/quotations/QuotationForm'
 import { useQuotation } from '@/hooks/useQuotations'
+import { usePniQuotation } from '@/hooks/usePni'
 import { useAuth } from '@/context/AuthContext'
 import { isQuotationEditableByUser, isStatusEditable, isTechnicalUnitOwner } from '@/lib/quotationEditability'
 import { ROUTES } from '@/config/routes'
@@ -22,7 +24,16 @@ export function QuotationEditClient({ id }: Props) {
   const { user, can, isLoading: authLoading } = useAuth()
   const { data: quotation, isLoading, isError, error, refetch } = useQuotation(id)
 
-  if (authLoading || isLoading) {
+  // A P&I quotation must never open in this generic form (its nested vessels / insurance blocks are not
+  // representable here): hand it to the P&I edit entry, which opens the template editor. H&M and Cargo are
+  // recognised from the quotation itself, so only a quotation that is neither is probed — same strategy as
+  // QuotationDetailDispatcher.
+  const maybePni = Boolean(quotation) && quotation?.hmQuotation == null && quotation?.cargoQuotation == null
+  const pniProbe = usePniQuotation(id, { retry: false, enabled: maybePni })
+  const isPni = Boolean(pniProbe.data)
+  useEffect(() => { if (isPni) router.replace(ROUTES.quotations.pniEdit(id)) }, [isPni, id, router])
+
+  if (authLoading || isLoading || (maybePni && pniProbe.isLoading) || isPni) {
     return (
       <div className="page-container">
         <PageSpinner label="Loading quotation…" />

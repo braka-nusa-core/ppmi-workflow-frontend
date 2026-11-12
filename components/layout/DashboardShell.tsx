@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
+import { GlobalLoadingBar } from '@/components/layout/GlobalLoadingBar'
 
 const STORAGE_KEY = 'ppmi.sidebar.collapsed'
 const AUTO_COLLAPSE_BELOW = 1100 // px — only when the user has never chosen
@@ -18,10 +19,15 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   // Resolve after mount so server and first client render match.
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY)
-      setCollapsed(saved !== null ? saved === '1' : window.innerWidth < AUTO_COLLAPSE_BELOW)
-    } catch { /* storage unavailable: stay expanded */ }
+    const hydrate = () => {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY)
+        setCollapsed(saved !== null ? saved === '1' : window.innerWidth < AUTO_COLLAPSE_BELOW)
+      } catch { /* storage unavailable: stay expanded */ }
+    }
+    hydrate()
+    window.addEventListener('resize', hydrate)
+    return () => window.removeEventListener('resize', hydrate)
   }, [])
 
   const toggle = useCallback(() => {
@@ -34,6 +40,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="app-shell" data-sidebar={collapsed ? 'collapsed' : 'expanded'}>
+      <GlobalLoadingBar />
       <Topbar />
       <Sidebar collapsed={collapsed} onToggle={toggle} />
       <main className="app-content">{children}</main>

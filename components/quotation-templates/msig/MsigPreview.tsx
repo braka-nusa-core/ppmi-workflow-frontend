@@ -18,7 +18,7 @@ function Block({ b }: { b: MsigDocBlock }) {
       return <div style={{ marginTop: '40pt' }}>{b.text}</div>
     case 'row':
       return (
-        <div style={{ marginTop: `${b.gapBefore}pt`, display: 'grid', gridTemplateColumns: b.fullWidth ? '1fr' : '154pt 1fr', marginLeft: b.fullWidth ? '-2.1pt' : 0, whiteSpace: 'pre-line' }}>
+        <div data-preview-section={b.id} style={{ marginTop: `${b.gapBefore}pt`, display: 'grid', gridTemplateColumns: b.fullWidth ? '1fr' : '154pt 1fr', marginLeft: b.fullWidth ? '-2.1pt' : 0, whiteSpace: 'pre-line' }}>
           {!b.fullWidth && <div style={{ ...LABEL, alignSelf: b.labelAlign === 'middle' ? 'center' : 'start' }}>{b.label}</div>}
           <div>
             {b.paragraphs.map((p, i) => (
@@ -29,7 +29,7 @@ function Block({ b }: { b: MsigDocBlock }) {
       )
     case 'vessel':
       return (
-        <div style={{ marginTop: `${b.gapBefore}pt` }}>
+        <div data-preview-section={b.id} style={{ marginTop: `${b.gapBefore}pt` }}>
           {b.rows.map((r, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '154pt 100.1pt 1fr', minHeight: '14pt' }}>
               <div style={LABEL}>{i === 0 ? b.label : ''}</div>
@@ -41,7 +41,7 @@ function Block({ b }: { b: MsigDocBlock }) {
       )
     case 'amount':
       return (
-        <div style={{ marginTop: `${b.gapBefore}pt`, display: 'grid', gridTemplateColumns: '154pt 40pt 70pt 1fr' }}>
+        <div data-preview-section={b.id} style={{ marginTop: `${b.gapBefore}pt`, display: 'grid', gridTemplateColumns: '154pt 40pt 70pt 1fr' }}>
           <div style={LABEL}>{b.label}</div>
           <div>{b.currency}</div>
           <div style={{ textAlign: 'right' }}>{b.amount}</div>
@@ -50,7 +50,7 @@ function Block({ b }: { b: MsigDocBlock }) {
       )
     case 'signature':
       return (
-        <div style={{ marginTop: `${b.gapBefore}pt` }}>
+        <div data-preview-section={b.id} style={{ marginTop: `${b.gapBefore}pt` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginLeft: '-2.1pt' }}>
             <span style={{ fontWeight: 700, fontStyle: 'italic' }}>{b.placeDate}</span>
             <span>{b.eoe}</span>

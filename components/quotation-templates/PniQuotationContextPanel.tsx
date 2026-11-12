@@ -15,9 +15,11 @@ interface Props {
   insuranceTypes: InsuranceType[] | undefined
   /** Set once the quotation is saved: client can be changed, insurance type is fixed. */
   saved: { quotationNumber: string; status: string } | null
+  /** The client currently selected (existing-client mode) — its stored details are shown read-only. */
+  selectedClient?: Client
 }
 
-export function PniQuotationContextPanel({ ctx, onChange, clients, clientsFailed, insuranceTypes, saved }: Props) {
+export function PniQuotationContextPanel({ ctx, onChange, clients, clientsFailed, insuranceTypes, saved, selectedClient }: Props) {
   const set = (patch: Partial<PniClientContext>) => onChange({ ...ctx, ...patch })
   const setNew = (patch: Partial<PniClientContext['newClient']>) => onChange({ ...ctx, newClient: { ...ctx.newClient, ...patch } })
   const typeName = insuranceTypes?.find((t) => t.id === ctx.insuranceTypeId)?.name
@@ -64,6 +66,17 @@ export function PniQuotationContextPanel({ ctx, onChange, clients, clientsFailed
               <label className="block text-xs"><span className="font-medium text-gray-700">Email</span>
                 <input className="form-input w-full mt-1" type="email" value={ctx.newClient.email} onChange={(e) => setNew({ email: e.target.value })} /></label>
             </>
+          )}
+
+          {(saved || ctx.clientMode === 'existing') && ctx.clientId && selectedClient && (
+            <dl className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 rounded border border-gray-200 bg-gray-50 px-3 py-2 text-xs" data-testid="ctx-client-summary">
+              {([['Client name', selectedClient.name], ['Address', selectedClient.address], ['Contact person', selectedClient.contactPerson], ['Phone', selectedClient.phone], ['Email', selectedClient.email]] as const).map(([label, value]) => (
+                <div key={label}><dt className="text-[#9aa3ad]">{label}</dt><dd className="break-words">{value || <span className="text-gray-400">—</span>}</dd></div>
+              ))}
+              <p className="sm:col-span-2 text-[11px] text-gray-500">
+                Choosing a client fills the document’s client-name field (and address, where the insurer’s paper has one) with these stored details — edit them in the document if the Assured differs from the client. The paper has no place for contact person, phone or email, so those stay on the client record only.
+              </p>
+            </dl>
           )}
 
           <label className="block text-xs">

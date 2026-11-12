@@ -1,13 +1,11 @@
 // FILE: app/dashboard/quotations/cargo/[id]/edit/page.tsx
-import type { Metadata } from 'next'
-import { CargoQuotationEditClient } from '@/components/cargo/CargoQuotationEditClient'
+// Cargo edit quotation entry — edit saved quotation.
 
-interface Props {
-  params: { id: string }
-}
+import { ROUTES } from '@/config/routes'
+import { redirect } from 'next/navigation'
 
-export const metadata: Metadata = { title: 'Edit Cargo Quotation | PPMI Flow' }
-
-export default function EditCargoQuotationPage({ params }: Props) {
-  return <CargoQuotationEditClient quotationId={params.id} />
+export default function CargoEditPage() {
+  // ponytail: Phase 2B implements backend repository to fetch quotation and validate edit access
+  // For now, redirect to new page — real edit requires backend integration
+  redirect(ROUTES.quotations.cargoNew)
 }

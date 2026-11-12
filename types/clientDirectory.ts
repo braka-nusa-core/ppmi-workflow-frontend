@@ -5,9 +5,12 @@
 //   GET /vessels/:id                        → Vessel
 // Nothing here is derived from the Excel; fields the backend does not
 // store (e.g. source month / record number) are intentionally absent.
-export type { Client as DirectoryClient } from '@/types/client'
 
+import type { Client } from '@/types/client'
 import type { VesselPolicyStatus } from '@/lib/clientDirectory/statuses'
+
+/** Re-export Client as DirectoryClient for backward compatibility. */
+export type DirectoryClient = Client
 
 /** Backend enum `VesselPolicyStatus` — values live in lib/clientDirectory/statuses.ts. */
 export type { VesselPolicyStatus }
@@ -59,4 +62,42 @@ export interface ClientDirectoryQuery {
   search?:  string
   sortBy?:  'name' | 'clientCode' | 'createdAt'
   sortDir?: 'asc' | 'desc'
+  insurer?:       string
+  vesselType?:    string
+  classification?: string
+  remark?:        string
+}
+
+export interface DirectoryPolicyRecord {
+  id:              string
+  clientId:        string
+  sourceMonth:     string
+  sourceRecordNo:  number
+  policyNumber:    string
+  periodStart:     string
+  periodEnd:       string
+  vesselName:      string
+  vesselType:      string
+  yearBuilt:       number
+  grossTonnage:    number
+  classification:  string
+  insurer:         string
+  remark:          string
+}
+
+export interface DirectoryClientSummary extends DirectoryClient {
+  recordCount:        number
+  insurers:           string[]
+  vesselNames:        string[]
+  latestPeriodEnd:    string | null
+}
+
+export interface DirectoryClientDetail {
+  client:  DirectoryClient
+  records: DirectoryPolicyRecord[]
+}
+
+export interface ClientDirectoryPage {
+  data:  DirectoryClientSummary[]
+  total: number
 }

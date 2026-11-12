@@ -136,15 +136,9 @@ function CreateQuotationForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <fieldset disabled={createMutation.isPending} className="contents">
       <FormSection title="Client" description="Link an existing client, or provide a new one inline" columns={1}>
-        <ClientPrefillNotice
-          state={clientPrefill}
-          onUseAsNew={(name) => {
-            setValue('clientMode', 'new')
-            setValue('clientId', undefined)
-            setValue('client.name', name, { shouldValidate: true })
-          }}
-        />
+        <ClientPrefillNotice state={clientPrefill} />
         <FormField label="Client Source">
           <div className="flex gap-2">
             {(['existing', 'new'] as const).map((mode) => (
@@ -226,7 +220,7 @@ function CreateQuotationForm() {
           <Input type="date" error={!!errors.periodStart} {...register('periodStart')} />
         </FormField>
         <FormField label="Period End" error={errors.periodEnd?.message}>
-          <Input type="date" error={!!errors.periodEnd} {...register('periodEnd')} />
+          <Input type="date" error={!!errors.periodEnd} min={watch('periodStart')} {...register('periodEnd')} />
         </FormField>
         <FormField label="Address" className="col-span-2" error={errors.address?.message}>
           <Textarea rows={2} error={!!errors.address} {...register('address')} />
@@ -263,6 +257,7 @@ function CreateQuotationForm() {
           Create Quotation
         </Button>
       </div>
+      </fieldset>
     </form>
   )
 }
@@ -276,7 +271,7 @@ function EditQuotationForm({ quotation }: { quotation: QuotationDetail }) {
   const { data: insuranceTypes, isLoading: insuranceTypesLoading } = useInsuranceTypes()
   const updateMutation = useUpdateQuotation(quotation.id)
 
-  const { register, handleSubmit, reset, formState: { errors } } =
+  const { register, handleSubmit, reset, watch, formState: { errors } } =
     useForm<UpdateQuotationFormData>({
       resolver: zodResolver(updateQuotationFormSchema),
     })
@@ -320,6 +315,7 @@ function EditQuotationForm({ quotation }: { quotation: QuotationDetail }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <fieldset disabled={updateMutation.isPending} className="contents">
       <FormSection title="Client & Insurance Type" columns={2}>
         <FormField label="Client" error={errors.clientId?.message}>
           <Select
@@ -350,7 +346,7 @@ function EditQuotationForm({ quotation }: { quotation: QuotationDetail }) {
           <Input type="date" error={!!errors.periodStart} {...register('periodStart')} />
         </FormField>
         <FormField label="Period End" error={errors.periodEnd?.message}>
-          <Input type="date" error={!!errors.periodEnd} {...register('periodEnd')} />
+          <Input type="date" error={!!errors.periodEnd} min={watch('periodStart')} {...register('periodEnd')} />
         </FormField>
         <FormField label="Address" className="col-span-2" error={errors.address?.message}>
           <Textarea rows={2} error={!!errors.address} {...register('address')} />
@@ -387,6 +383,7 @@ function EditQuotationForm({ quotation }: { quotation: QuotationDetail }) {
           Save Changes
         </Button>
       </div>
+      </fieldset>
     </form>
   )
 }

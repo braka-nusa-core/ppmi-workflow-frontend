@@ -40,8 +40,12 @@ export const ROUTES = {
     // existing quotation detail architecture (base Quotation id).
     // P&I creation = the insurer-template page (client's required flow). The old form at /pni/new now redirects here.
     pniNew: '/dashboard/quotations/pni/template-prototype',
+    // Edit entry for a saved P&I quotation. For clubs that have an insurer template it redirects to
+    // `pniTemplateEdit`; only clubs with NO template (legacy) keep the old P&I form here.
     pniEdit: (id: string) => `/dashboard/quotations/pni/${id}/edit`,
-    // Insurer paper (MSIG / Eagle) rendered from the saved P&I quotation.
+    // THE P&I edit experience: the template editor opened on the saved quotation (`?id=`).
+    pniTemplateEdit: (id: string) => `/dashboard/quotations/pni/template-prototype?id=${encodeURIComponent(id)}`,
+    // Legacy URL of the former read-only template page; now redirects to `detail` (the detail page IS the document).
     pniTemplate: (id: string) => `/dashboard/quotations/pni/${id}/template`,
     // H&M-specific create/edit (Phase 3B) — two-step create
     // (POST /quotations then POST /hm/quotations/:id) behind one form.

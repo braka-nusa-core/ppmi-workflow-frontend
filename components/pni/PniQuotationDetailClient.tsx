@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronDown, ChevronUp, FileText, Pencil } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -34,6 +34,7 @@ import {
   PniInstallmentsPanel,
   PniAdminPanel,
 } from './PniDetailPanels'
+import { PniDocumentView } from './PniDocumentView'
 import { PniWorkflowActions } from './PniWorkflowActions'
 import type { ApiError } from '@/types/api'
 
@@ -105,6 +106,11 @@ function LazySection({ id, title }: { id: string; title: 'approvals' | 'history'
  * (Overview/Client/Financial/Submissions/Attachments) the base
  * QuotationDetailClient uses, rather than re-displaying that data from
  * the looser-typed `pni.quotation` sub-object.
+ *
+ * For a club that has an insurer template (MSIG, Eagle) the page is DOCUMENT-FIRST: the saved
+ * quotation is rendered as its paper (PniDocumentView) — the same model the template editor previews
+ * and the PDF prints — with the workflow actions, status and the record panels around it. Edit opens
+ * the template editor. A club without a template keeps the record layout and the legacy edit form.
  */
 export function PniQuotationDetailClient({ quotationId }: Props) {
   const router = useRouter()
@@ -141,6 +147,8 @@ export function PniQuotationDetailClient({ quotationId }: Props) {
   const quotation = quotationQuery.data
   const pni = pniQuery.data
   const canEdit = can('quotation', 'update') && isQuotationEditableByUser(quotation, user)
+  // A club with an insurer template is shown (and edited) as its paper; a club without one keeps the legacy record layout.
+  const adapter = getPniTemplateAdapter(pni.club.code)
 
   function invalidateBoth() {
     qc.invalidateQueries({ queryKey: quotationKeys.detail(quotationId) })
@@ -157,24 +165,8 @@ export function PniQuotationDetailClient({ quotationId }: Props) {
             <Button variant="ghost" size="sm" icon={<ArrowLeft size={13} />} onClick={() => router.push(ROUTES.quotations.list)}>
               Back to list
             </Button>
-            {pni && (getPniTemplateAdapter(pni.club.code) ? (
-              <Button variant="secondary" size="sm" icon={<FileText size={13} />} onClick={() => router.push(ROUTES.quotations.pniTemplate(quotationId))}>
-                Insurer Template
-              </Button>
-            ) : (
-              // No paper exists for this club yet (only MSIG and Eagle Ocean Marine). Shown disabled with the
-              // reason instead of hidden, so the missing template is explained rather than looking like a bug.
-              <>
-                <Button variant="secondary" size="sm" icon={<FileText size={13} />} disabled title={`No insurer template for ${pni.club.name} yet`} data-testid="insurer-template-unavailable">
-                  Insurer Template
-                </Button>
-                <span className="hidden md:inline text-[11px] text-[#9aa3ad]" data-testid="insurer-template-unavailable-note">
-                  No template for {pni.club.name} yet
-                </span>
-              </>
-            ))}
             {canEdit && (
-              <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={() => router.push(ROUTES.quotations.pniEdit(quotationId))}>
+              <Button variant="secondary" size="sm" icon={<Pencil size={13} />} onClick={() => router.push(adapter ? ROUTES.quotations.pniTemplateEdit(quotationId) : ROUTES.quotations.pniEdit(quotationId))}>
                 Edit
               </Button>
             )}
@@ -193,15 +185,38 @@ export function PniQuotationDetailClient({ quotationId }: Props) {
           onActionSuccess={invalidateBoth}
         />
 
-        <QuotationOverviewPanel quotation={quotation} />
-        <QuotationClientPanel quotation={quotation} />
-        <PniOverviewPanel pni={pni} />
-        <QuotationFinancialPanel quotation={quotation} />
-        <PniVesselsPanel vessels={pni.vessels} />
-        <PniInsuranceBlocksPanel pni={pni} />
-        <PniQuoteLevelPanel pni={pni} />
-        <PniInstallmentsPanel pni={pni} />
-        <PniAdminPanel pni={pni} />
+        {adapter ? (
+          <>
+            <PniDocumentView pni={pni} />
+            <QuotationOverviewPanel quotation={quotation} />
+            <QuotationClientPanel quotation={quotation} />
+            <QuotationFinancialPanel quotation={quotation} />
+            {/* The same saved data as the document, in record form — kept so nothing that is stored is hidden. */}
+            <details className="card" data-testid="pni-record-view">
+              <summary className="card-body cursor-pointer text-[13px] font-semibold text-[#18273a]">All saved P&amp;I data (record view)</summary>
+              <div className="card-body pt-0 flex flex-col gap-4">
+                <PniOverviewPanel pni={pni} />
+                <PniVesselsPanel vessels={pni.vessels} />
+                <PniInsuranceBlocksPanel pni={pni} />
+                <PniQuoteLevelPanel pni={pni} />
+                <PniInstallmentsPanel pni={pni} />
+                <PniAdminPanel pni={pni} />
+              </div>
+            </details>
+          </>
+        ) : (
+          <>
+            <QuotationOverviewPanel quotation={quotation} />
+            <QuotationClientPanel quotation={quotation} />
+            <PniOverviewPanel pni={pni} />
+            <QuotationFinancialPanel quotation={quotation} />
+            <PniVesselsPanel vessels={pni.vessels} />
+            <PniInsuranceBlocksPanel pni={pni} />
+            <PniQuoteLevelPanel pni={pni} />
+            <PniInstallmentsPanel pni={pni} />
+            <PniAdminPanel pni={pni} />
+          </>
+        )}
         <QuotationSubmissionsPanel submissions={quotation.submissions} />
         <QuotationAttachmentsPanel attachments={quotation.attachments} />
 

@@ -155,8 +155,8 @@ export function DataTable<T>({
           {/* Body */}
           <tbody>
             {loading ? (
-              // Loading skeleton rows
-              Array.from({ length: compact ? 8 : 6 }).map((_, i) => (
+              // Loading skeleton rows — count matches pageSize
+              Array.from({ length: pagination?.pageSize ?? (compact ? 8 : 6) }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
                     <td key={col.key}>
@@ -213,8 +213,8 @@ export function DataTable<T>({
       </div>
 
       {/* Pagination */}
-      {pagination && !loading && data.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#e2e5e9] bg-[#f8f9fa]">
+      {pagination && data.length > 0 && (
+        <div className={`flex items-center justify-between px-4 py-3 border-t border-[#e2e5e9] bg-[#f8f9fa] ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
           {/* Left: Row count info */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-[#9aa3ad]">

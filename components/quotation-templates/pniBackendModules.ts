@@ -63,6 +63,7 @@ export function createPniBackendModules(context: PniContextBridge) {
     fileName: (d) => `MSIG-Quotation-${(d.reference || 'draft').replace(/[^\w.-]+/g, '_')}.pdf`,
     insurerName: (t) => t?.insurerName ?? '',
     savedLabel: (d) => `${d.reference || '(no reference)'} — ${d.assured || '(no assured)'}`,
+    clientFields: { name: { field: 'assured', label: 'Assured(s)' } }, // the MSIG paper prints no client address
   }
   const eagle: TemplateModule<EagleFormData, EagleTemplate, EagleDocument> = {
     code: EAGLE_CLUB_FORMAT,
@@ -78,6 +79,7 @@ export function createPniBackendModules(context: PniContextBridge) {
     fileName: (d) => `Eagle-Quotation-${(d.reference || 'draft').replace(/[^\w.-]+/g, '_')}.pdf`,
     insurerName: (t) => t?.insurerName ?? '',
     savedLabel: (d) => `${d.reference || '(no reference)'} — ${d.applicant || '(no applicant)'}`,
+    clientFields: { name: { field: 'applicant', label: 'Applicant' }, address: { field: 'address', label: 'Address' } },
   }
   return { msig, eagle }
 }

@@ -22,7 +22,7 @@ const SECTION_TITLES: Record<MsigSection, { title: string; note?: string }> = {
 
 function Row({ id, label, protectedText, children }: { id: string; label?: string; protectedText?: boolean; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[210px_1fr] gap-3 py-2 border-b border-gray-100 last:border-0">
+    <div data-sync={id} className="grid grid-cols-[210px_1fr] gap-3 py-2 border-b border-gray-100 last:border-0">
       <div className="text-xs font-semibold italic text-gray-700 leading-snug">
         {label}
         <div className="not-italic font-normal text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
@@ -92,7 +92,7 @@ export function MsigEditor({ template, form }: { template: MsigTemplate; form: U
             {fields.length === 0 && <p className="text-xs text-[#8c6d1f]">No vessel: no “{el.label}” block will print. (Minimum vessel count is unconfirmed.)</p>}
             <div className="space-y-3">
               {fields.map((f, i) => (
-                <div key={f.rhfKey} className="rounded border border-gray-200 p-3" data-testid="vessel-card">
+                <div key={f.rhfKey} className="rounded border border-gray-200 p-3" data-testid="vessel-card" data-sync={`${el.id}-${f.id}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-gray-700">{el.label} {i + 1}</span>
                     <Button type="button" size="sm" variant="ghost" icon={<Trash2 size={12} />} onClick={() => remove(i)} aria-label={`Remove vessel ${i + 1}`}>Remove</Button>

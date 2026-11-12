@@ -4,9 +4,17 @@
 // provide another ClientDirectoryRepository (HTTP) and swap the export —
 // no UI changes. No backend endpoint is assumed or called here.
 import type {
-  ClientDirectoryFilterOptions, ClientDirectoryPage, ClientDirectoryQuery,
+  ClientDirectoryPage, ClientDirectoryQuery,
   DirectoryClientDetail, DirectoryClientSummary, DirectoryPolicyRecord,
 } from '@/types/clientDirectory'
+
+/** Filter options for client directory list. */
+interface ClientDirectoryFilterOptions {
+  insurers: string[]
+  vesselTypes: string[]
+  classifications: string[]
+  remarks: string[]
+}
 import { MOCK_DIRECTORY_CLIENTS, MOCK_DIRECTORY_RECORDS } from '@/lib/mock/clientDirectoryData'
 
 export interface ClientDirectoryRepository {
@@ -44,7 +52,7 @@ class MockClientDirectoryRepository implements ClientDirectoryRepository {
       const own = MOCK_DIRECTORY_RECORDS.filter((r) => r.clientId === c.id)
       const filtered = own.filter((r) => recordMatchesFilters(r, q))
       if (hasRecordFilter && filtered.length === 0) return []
-      const nameHit = needle && norm(c.assuredName).includes(needle)
+      const nameHit = needle && norm(c.name).includes(needle)
       if (needle && !nameHit && !filtered.some((r) => recordMatchesSearch(r, needle))) return []
       const ends = filtered.map((r) => r.periodEnd).filter((d): d is string => !!d).sort()
       return [{
@@ -57,9 +65,9 @@ class MockClientDirectoryRepository implements ClientDirectoryRepository {
     })
 
     const dir = q.sortDir === 'desc' ? -1 : 1
-    const key = q.sortBy ?? 'assuredName'
+    const key = q.sortBy ?? 'name'
     rows = rows.sort((a, b) => {
-      const av = a[key] ?? '', bv = b[key] ?? ''
+      const av = (a as any)[key] ?? '', bv = (b as any)[key] ?? ''
       return (av < bv ? -1 : av > bv ? 1 : 0) * dir
     })
 

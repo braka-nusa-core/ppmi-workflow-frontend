@@ -6,8 +6,15 @@ import type { DirectoryClient, DirectoryPolicyRecord } from '@/types/clientDirec
 export const MOCK_DIRECTORY_CLIENTS: DirectoryClient[] = [
   {
     id: 'mock-client-001',
-    assuredName: 'PT. AGUNG SUKSES LANCARA QQ PT SENTOSA SAMUDRA JAYA',
-    backendClientId: null,
+    clientCode: 'CLI-001',
+    name: 'PT. AGUNG SUKSES LANCARA QQ PT SENTOSA SAMUDRA JAYA',
+    address: 'Jakarta, Indonesia',
+    phone: '021-1234567',
+    email: 'contact@agung.co.id',
+    contactPerson: 'John Doe',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    deletedAt: null,
   },
 ]
 

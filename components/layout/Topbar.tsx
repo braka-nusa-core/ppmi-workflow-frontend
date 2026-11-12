@@ -72,10 +72,12 @@ export function Topbar() {
         <div className="flex items-center gap-1">
 
           {/* Notifications */}
-          <button className={cn(
+          <button
+            disabled
+            title="Notifications feature is not available yet"
+            className={cn(
             'relative flex items-center justify-center w-8 h-8 rounded',
-            'text-[#9aa3ad] hover:text-[#232b34] hover:bg-[#f1f3f5]',
-            'transition-colors duration-100'
+            'text-[#9aa3ad] opacity-50 cursor-not-allowed'
           )}>
             <Bell size={16} />
             {/* Notification dot */}
@@ -83,10 +85,12 @@ export function Topbar() {
           </button>
 
           {/* Settings */}
-          <button className={cn(
+          <button
+            disabled
+            title="Settings feature is not available yet"
+            className={cn(
             'flex items-center justify-center w-8 h-8 rounded',
-            'text-[#9aa3ad] hover:text-[#232b34] hover:bg-[#f1f3f5]',
-            'transition-colors duration-100'
+            'text-[#9aa3ad] opacity-50 cursor-not-allowed'
           )}>
             <Settings size={16} />
           </button>

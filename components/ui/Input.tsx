@@ -20,6 +20,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <input
             ref={ref}
+            aria-invalid={error}
             className={cn(
               'form-input',
               leftIcon && 'pl-9',
@@ -41,6 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         ref={ref}
+        aria-invalid={error}
         className={cn('form-input', error && 'error', className)}
         {...props}
       />
@@ -58,6 +60,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         ref={ref}
+        aria-invalid={error}
         className={cn(
           'form-input h-auto py-2 resize-none',
           error && 'error',
@@ -81,6 +84,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <select
         ref={ref}
+        aria-invalid={error}
         className={cn(
           'form-input appearance-none bg-white pr-8',
           'bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\'%3E%3Cpath fill=\'%239aa3ad\' d=\'M7 10l5 5 5-5z\'/%3E%3C/svg%3E")] bg-no-repeat bg-[right_10px_center]',

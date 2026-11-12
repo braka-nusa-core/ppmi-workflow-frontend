@@ -289,3 +289,56 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+/* ——— Responsive Breakpoints ———————————————————————————————————— */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 200px;
+  }
+  .app-shell { grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 64px;
+    --sidebar-width-collapsed: 56px;
+  }
+  .app-shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+  .app-sidebar {
+    display: none;
+  }
+  .app-content {
+    grid-column: 1 / -1;
+  }
+  .data-table-wrapper {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  .page-container {
+    padding: 16px 12px;
+  }
+  .btn {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: 12px 8px;
+  }
+  .app-topbar {
+    padding: 0 12px;
+  }
+  .data-table td {
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .data-table th {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+}

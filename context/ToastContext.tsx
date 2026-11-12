@@ -42,10 +42,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const success = useCallback((title: string, message?: string) => toast('success', title, message), [toast])
-  const error   = useCallback((title: string, message?: string) => toast('error',   title, message), [toast])
-  const warning = useCallback((title: string, message?: string) => toast('warning', title, message), [toast])
-  const info    = useCallback((title: string, message?: string) => toast('info',    title, message), [toast])
+  const success = useCallback((title: string, message?: string) => toast('success', title, message, 4000), [toast])
+  const error   = useCallback((title: string, message?: string) => toast('error',   title, message, 6000), [toast])
+  const warning = useCallback((title: string, message?: string) => toast('warning', title, message, 5000), [toast])
+  const info    = useCallback((title: string, message?: string) => toast('info',    title, message, 4000), [toast])
 
   const value: ToastContextValue = { toasts, toast, dismiss, success, error, warning, info }
 

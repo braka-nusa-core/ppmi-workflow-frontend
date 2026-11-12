@@ -6,6 +6,7 @@
 
 import type { ComponentType } from 'react'
 import type { FieldValues, UseFormReturn } from 'react-hook-form'
+import type { ClientFieldMap } from '@/lib/quotation-templates/shared/clientPrefill'
 import type { TemplateRepository } from '@/lib/quotation-templates/shared/repositoryTypes'
 
 export interface TemplateModule<TData extends FieldValues, TTemplate extends { templateId: string; templateVersion: string }, TDoc> {
@@ -23,4 +24,6 @@ export interface TemplateModule<TData extends FieldValues, TTemplate extends { t
   insurerName: (template: TTemplate) => string
   /** One-line label for the "Open saved" list. */
   savedLabel: (data: TData) => string
+  /** Which form fields an existing client's data fills (only fields this insurer's paper has). Omitted = no client auto-fill. */
+  clientFields?: ClientFieldMap
 }
